@@ -36,20 +36,23 @@ An interactive e-learning web application designed to support students with feat
 ##  Folder Structure
 
 elearning-auth-project/
-├── client/ # React frontend (Vite)
-│ ├── public/
-│ ├── src/
-│ │ ├── assets/
-│ │ ├── components/
-│ │ └── pages/ # Login, Dashboard, Courses, etc.
-│ ├── tailwind.config.js
-│ └── vite.config.js
-├── server/ # Node + Express backend
-│ ├── models/ # MongoDB schemas
-│ ├── routes/ # API routes (auth, user)
-│ ├── controllers/ # Business logic
-│ └── server.js # Entry point
-└── README.md
+├── client/                  # React frontend (Vite)
+│   ├── public/
+│   ├── src/
+│   │   ├── assets/          # Static assets like images
+│   │   ├── components/      # Reusable UI components
+│   │   └── pages/           # Page components (Login, Dashboard, Courses, etc.)
+│   ├── tailwind.config.js   # Tailwind CSS config
+│   └── vite.config.js       # Vite config
+│
+├── server/                  # Node.js + Express backend
+│   ├── models/              # MongoDB schemas
+│   ├── routes/              # API routes (auth, user)
+│   ├── controllers/         # Business logic (auth handlers, etc.)
+│   └── server.js            # Main Express entry point
+│
+└── README.md                # Project documentation
+
 
 
 ---
@@ -63,37 +66,56 @@ elearning-auth-project/
 
 ###  Setup
 
-#### 1. Clone the repo
-```bash
-git clone https://github.com/yourusername/Sustainable-classroom.git
-cd Sustainable-classroom
-#### 2. Install client dependencies
-bash
-Copy
-Edit
+# ⚙️ Getting Started
+
+# 🔧 Prerequisites:
+# - Node.js v18+ must be installed
+# - MongoDB running locally or an Atlas URI ready
+
+
+
+# 1. Set up the Client
+npm create vite@latest client -- --template react
 cd client
 npm install
-**3. Install server dependencies**
-bash
-Copy
-Edit
-cd ../server
-npm install
-**4. Create .env in server**
-env
-Copy
-Edit
-PORT=5000
-MONGO_URI=mongodb://localhost:27017/elearningDB
-**5. Start the servers**
-bash
-Copy
-Edit
-# In client folder
+# Optional: install Tailwind CSS
+npm install -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p
+
+# Configure Tailwind in tailwind.config.js and index.css accordingly
+# Now start client
 npm run dev
 
-# In server folder (separate terminal)
+# 2. Set up the Server
+cd ..
+mkdir server
+cd server
+npm init -y
+npm install express mongoose dotenv cors
+
+# Create server.js and add your Express server logic
+# Example:
+echo "require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+mongoose.connect(process.env.MONGO_URI).then(() => {
+  console.log('MongoDB connected');
+});
+
+app.listen(5000, () => console.log('Server running on port 5000'));" > server.js
+
+# Create .env file
+echo "MONGO_URI=mongodb://localhost:27017/sustainable_classroom" > .env
+
+# Start the backend server
 node server.js
+
 
 API Endpoints
 
