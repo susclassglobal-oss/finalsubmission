@@ -67,7 +67,7 @@ elearning-auth-project/
 ```bash
 git clone https://github.com/yourusername/Sustainable-classroom.git
 cd Sustainable-classroom
-**2. Install client dependencies**
+#### 2. Install client dependencies
 bash
 Copy
 Edit
