@@ -11,8 +11,13 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"],
-    "collectCoverageFrom": ["server.js", "notificationService.js"],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "server.js",
+      "notificationService.js"
+    ],
     "testTimeout": 10000
   },
   "keywords": [
@@ -33,7 +38,8 @@
     "multer": "^1.4.5-lts.1",
     "multer-storage-cloudinary": "^4.0.0",
     "nodemailer": "^7.0.12",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "resend": "^6.7.0"
   },
   "devDependencies": {
     "better-sqlite3": "^12.6.0",

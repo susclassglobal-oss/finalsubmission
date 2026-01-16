@@ -9,6 +9,7 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const notificationService = require('./notificationService');
 
 const app = express();
@@ -87,20 +88,26 @@ const adminOnly = (req, res, next) => {
 
 // --- ROUTES: AUTHENTICATION ---
 
-// Email transporter configuration - uses environment variables
+// Email configuration - supports both SMTP (local) and Resend API (Render/production)
 const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
 const smtpPass = process.env.SMTP_PASSWORD || process.env.EMAIL_PASS;
+const resendApiKey = process.env.RESEND_API_KEY;
 
 console.log('=== EMAIL CONFIG DEBUG ===');
-console.log('SMTP_USER env:', process.env.SMTP_USER ? 'SET' : 'NOT SET');
-console.log('EMAIL_USER env:', process.env.EMAIL_USER ? 'SET' : 'NOT SET');
-console.log('SMTP_PASSWORD env:', process.env.SMTP_PASSWORD ? 'SET (hidden)' : 'NOT SET');
-console.log('EMAIL_PASS env:', process.env.EMAIL_PASS ? 'SET (hidden)' : 'NOT SET');
-console.log('Resolved smtpUser:', smtpUser || 'NONE');
-console.log('Resolved smtpPass:', smtpPass ? '***' + smtpPass.slice(-4) : 'NONE');
+console.log('RESEND_API_KEY:', resendApiKey ? 'SET (re_...)' : 'NOT SET');
+console.log('SMTP_USER:', smtpUser || 'NOT SET');
+console.log('SMTP_PASSWORD:', smtpPass ? 'SET' : 'NOT SET');
 
+// Initialize Resend if API key is available (preferred for cloud deployment)
+let resend = null;
+if (resendApiKey) {
+  resend = new Resend(resendApiKey);
+  console.log('✓ Resend API configured (HTTP-based, works on Render free tier)');
+}
+
+// Initialize SMTP transporter as fallback (works locally, blocked on Render free)
 let transporter = null;
-if (smtpUser && smtpPass) {
+if (smtpUser && smtpPass && !resendApiKey) {
   transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -109,43 +116,60 @@ if (smtpUser && smtpPass) {
     }
   });
   
-  // Verify transporter on startup
   transporter.verify((error, success) => {
     if (error) {
-      console.error('✗ Email transporter verification FAILED:', error.message);
-      console.error('  Full error:', error);
+      console.error('✗ SMTP verification FAILED:', error.message);
     } else {
-      console.log('✓ Email transporter VERIFIED - ready to send emails');
+      console.log('✓ SMTP transporter VERIFIED');
     }
   });
-  
-  console.log('✓ Email transporter configured with:', smtpUser);
-} else {
-  console.warn('⚠ SMTP not configured - emails will be logged to console only');
-  console.warn('  Set SMTP_USER and SMTP_PASSWORD environment variables');
 }
 
-// Helper function to send email without blocking
-const sendEmailAsync = (mailOptions) => {
-  console.log('[EMAIL] Attempting to send to:', mailOptions.to);
+if (!resend && !transporter) {
+  console.warn('⚠ No email service configured - emails will be logged to console only');
+  console.warn('  Set RESEND_API_KEY (recommended) or SMTP_USER + SMTP_PASSWORD');
+}
+
+// Unified email sender - uses Resend API or SMTP
+const sendEmailAsync = async (mailOptions) => {
+  console.log('[EMAIL] Sending to:', mailOptions.to);
   
-  if (!transporter) {
-    console.log('[EMAIL MOCK] No transporter - To:', mailOptions.to, 'Subject:', mailOptions.subject);
+  // Try Resend first (works on Render)
+  if (resend) {
+    try {
+      const { data, error } = await resend.emails.send({
+        from: 'SusClass <onboarding@resend.dev>', // Use verified domain in production
+        to: mailOptions.to,
+        subject: mailOptions.subject,
+        html: mailOptions.html
+      });
+      
+      if (error) {
+        console.error('✗ Resend FAILED:', error);
+        return;
+      }
+      
+      console.log('✓ Email sent via Resend! ID:', data.id);
+      return;
+    } catch (err) {
+      console.error('✗ Resend error:', err.message);
+      return;
+    }
+  }
+  
+  // Fallback to SMTP (local development)
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✓ Email sent via SMTP! ID:', info.messageId);
+    } catch (err) {
+      console.error('✗ SMTP send FAILED:', err.message);
+    }
     return;
   }
   
-  transporter.sendMail(mailOptions)
-    .then((info) => {
-      console.log('✓ Email sent successfully to:', mailOptions.to);
-      console.log('  Message ID:', info.messageId);
-      console.log('  Response:', info.response);
-    })
-    .catch(err => {
-      console.error('✗ Email send FAILED to:', mailOptions.to);
-      console.error('  Error code:', err.code);
-      console.error('  Error message:', err.message);
-      console.error('  Full error:', err);
-    });
+  // No email service configured
+  console.log('[EMAIL MOCK] To:', mailOptions.to, 'Subject:', mailOptions.subject);
 };
 
 // 1. Admin Login (Env based)
