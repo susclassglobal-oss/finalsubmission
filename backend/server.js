@@ -682,28 +682,42 @@ app.get('/api/admin/sections', authenticateToken, adminOnly, async (req, res) =>
 app.post('/api/admin/allocate-sections', authenticateToken, adminOnly, async (req, res) => {
   const { teacher_id, sections, subject } = req.body;
   
+  console.log("Allocation request:", { teacher_id, sections, subject });
+  
   if (!teacher_id || !sections || sections.length === 0 || !subject) {
     return res.status(400).json({ error: "Teacher ID, sections, and subject are required" });
   }
   
   try {
-    // Get the section details from the section IDs
-    const sectionResult = await pool.query(`
-      SELECT DISTINCT class_dept, section 
+    // Get all available sections to map IDs
+    const allSectionsResult = await pool.query(`
+      SELECT 
+        ROW_NUMBER() OVER (ORDER BY class_dept, section) as id,
+        class_dept, 
+        section
       FROM students 
       WHERE class_dept IS NOT NULL AND section IS NOT NULL
+      GROUP BY class_dept, section 
       ORDER BY class_dept, section
     `);
     
-    // Create array of section strings to update teacher
-    const allSections = sectionResult.rows;
+    const allSections = allSectionsResult.rows;
+    console.log("All available sections:", allSections);
+    
+    // Map selected section IDs to section strings (class_dept-section)
     const selectedSectionStrings = sections.map(sectionId => {
-      const idx = parseInt(sectionId) - 1;
-      if (idx >= 0 && idx < allSections.length) {
-        return `${allSections[idx].class_dept}-${allSections[idx].section}`;
+      const section = allSections.find(s => s.id === parseInt(sectionId));
+      if (section) {
+        return `${section.class_dept}-${section.section}`;
       }
       return null;
     }).filter(Boolean);
+    
+    console.log("Selected section strings:", selectedSectionStrings);
+    
+    if (selectedSectionStrings.length === 0) {
+      return res.status(400).json({ error: "No valid sections found" });
+    }
     
     // Get current allocated sections for this teacher
     const teacherResult = await pool.query(
@@ -716,6 +730,8 @@ app.post('/api/admin/allocate-sections', authenticateToken, adminOnly, async (re
     // Add new sections (avoiding duplicates)
     const updatedSections = [...new Set([...currentSections, ...selectedSectionStrings])];
     
+    console.log("Updating teacher sections to:", updatedSections);
+    
     // Update teacher's allocated_sections
     await pool.query(
       'UPDATE teachers SET allocated_sections = $1 WHERE id = $2',
@@ -723,22 +739,23 @@ app.post('/api/admin/allocate-sections', authenticateToken, adminOnly, async (re
     );
     
     // Also create teacher_student_allocations for all students in these sections
-    for (const section of allSections) {
-      const sectionString = `${section.class_dept}-${section.section}`;
-      if (selectedSectionStrings.includes(sectionString)) {
-        // Get all students in this section
-        const studentsResult = await pool.query(
-          'SELECT id FROM students WHERE class_dept = $1 AND section = $2',
-          [section.class_dept, section.section]
+    for (const sectionStr of selectedSectionStrings) {
+      const [class_dept, section] = sectionStr.split('-');
+      
+      // Get all students in this section
+      const studentsResult = await pool.query(
+        'SELECT id FROM students WHERE class_dept = $1 AND section = $2',
+        [class_dept, section]
+      );
+      
+      console.log(`Found ${studentsResult.rows.length} students in ${sectionStr}`);
+      
+      // Create allocations for each student
+      for (const student of studentsResult.rows) {
+        await pool.query(
+          'INSERT INTO teacher_student_allocations (teacher_id, student_id, subject) VALUES ($1, $2, $3) ON CONFLICT (teacher_id, student_id, subject) DO NOTHING',
+          [teacher_id, student.id, subject]
         );
-        
-        // Create allocations for each student
-        for (const student of studentsResult.rows) {
-          await pool.query(
-            'INSERT INTO teacher_student_allocations (teacher_id, student_id, subject) VALUES ($1, $2, $3) ON CONFLICT (teacher_id, student_id, subject) DO NOTHING',
-            [teacher_id, student.id, subject]
-          );
-        }
       }
     }
     
