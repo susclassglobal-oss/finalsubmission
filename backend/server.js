@@ -529,7 +529,7 @@ app.post('/api/admin/register-student', authenticateToken, adminOnly, async (req
     
     const result = await pool.query(query, values);
     const studentId = result.rows[0].id;
-    console.log("✓ Student registered successfully!");
+    console.log("Student registered successfully");
     
     // 🔔 NOTIFICATION: Welcome email
     try {
@@ -552,7 +552,7 @@ app.post('/api/admin/register-student', authenticateToken, adminOnly, async (req
         },
         { student_id: studentId }
       );
-      console.log(`✓ Sent ACCOUNT_CREATED notification to student ${name}`);
+      console.log(`Sent ACCOUNT_CREATED notification to student ${name}`);
     } catch (notifErr) {
       console.error('Welcome notification error (non-blocking):', notifErr);
     }
@@ -985,7 +985,7 @@ app.get('/api/student/profile', authenticateToken, async (req, res) => {
 app.get('/api/student/recent-modules', authenticateToken, async (req, res) => {
   try {
     const studentResult = await pool.query(
-      'SELECT section FROM students WHERE id = $1',
+      'SELECT class_dept, section FROM students WHERE id = $1',
       [req.user.id]
     );
     
@@ -993,22 +993,23 @@ app.get('/api/student/recent-modules', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Student not found" });
     }
     
-    const section = studentResult.rows[0].section;
+    const { class_dept, section } = studentResult.rows[0];
+    const fullSection = `${class_dept} ${section}`;
     
-    // Get modules for student's section, ordered by most recent
+    // Get modules for student's section with accurate progress
     const modulesResult = await pool.query(`
-      SELECT m.id, m.topic_title, m.subject, m.section, m.created_at,
+      SELECT m.id, m.topic_title, m.subject, m.section, m.created_at, m.step_count,
         COALESCE(
-          (SELECT COUNT(*) * 100 / NULLIF(m.step_count, 0) 
+          (SELECT COUNT(*) * 100.0 / NULLIF(m.step_count, 0) 
            FROM module_completion mc 
            WHERE mc.module_id = m.id AND mc.student_id = $1 AND mc.is_completed = true), 
           0
         ) as progress
       FROM modules m 
-      WHERE m.section = $2 
+      WHERE LOWER(m.section) = LOWER($2)
       ORDER BY m.created_at DESC 
       LIMIT 5
-    `, [req.user.id, section]);
+    `, [req.user.id, fullSection]);
     
     res.json(modulesResult.rows);
   } catch (err) {
@@ -1021,7 +1022,7 @@ app.get('/api/student/recent-modules', authenticateToken, async (req, res) => {
 app.get('/api/student/stats', authenticateToken, async (req, res) => {
   try {
     const studentResult = await pool.query(
-      'SELECT section FROM students WHERE id = $1',
+      'SELECT class_dept, section FROM students WHERE id = $1',
       [req.user.id]
     );
     
@@ -1029,19 +1030,21 @@ app.get('/api/student/stats', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Student not found" });
     }
     
-    const section = studentResult.rows[0].section;
+    const { class_dept, section } = studentResult.rows[0];
+    const fullSection = `${class_dept} ${section}`;
     
     // Get total modules for section
     const totalResult = await pool.query(
-      'SELECT COUNT(*) as total FROM modules WHERE section = $1',
-      [section]
+      'SELECT COUNT(*) as total FROM modules WHERE LOWER(section) = LOWER($1)',
+      [fullSection]
     );
     
     // Get completed modules (all steps completed)
     const completedResult = await pool.query(`
       SELECT COUNT(DISTINCT m.id) as completed
       FROM modules m
-      WHERE m.section = $1 
+      WHERE LOWER(m.section) = LOWER($1)
+      AND m.step_count > 0
       AND NOT EXISTS (
         SELECT 1 FROM generate_series(1, m.step_count) s(n)
         WHERE NOT EXISTS (
@@ -1049,7 +1052,7 @@ app.get('/api/student/stats', authenticateToken, async (req, res) => {
           WHERE mc.module_id = m.id AND mc.student_id = $2 AND mc.step_index = s.n AND mc.is_completed = true
         )
       )
-    `, [section, req.user.id]);
+    `, [fullSection, req.user.id]);
     
     // Calculate streak (consecutive days with activity)
     const streakResult = await pool.query(`
@@ -1139,7 +1142,7 @@ app.post('/api/teacher/upload-module', authenticateToken, async (req, res) => {
           ]);
         }
         
-        console.log(`✓ Sent MODULE_PUBLISHED notifications to ${students.length} students`);
+        console.log(`Sent MODULE_PUBLISHED notifications to ${students.length} students`);
       }
     } catch (notifErr) {
       console.error('Notification error (non-blocking):', notifErr);
@@ -1431,7 +1434,7 @@ app.post('/api/student/module/:moduleId/complete', authenticateToken, async (req
             VALUES ('student', $1, 'module_achievement', $2, $3, $4, CURRENT_TIMESTAMP)
           `, [
             studentId,
-            '🎉 Module Completed!',
+            'Module Completed!',
             `Congratulations! You completed "${module.topic_title}" with all ${module.step_count} steps.`,
             JSON.stringify({
               module_id: moduleId,
@@ -2558,7 +2561,7 @@ app.get('*', (req, res) => {
 // Export app for testing, only listen if run directly
 if (require.main === module) {
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`🚀 SERVER ACTIVE ON PORT ${PORT}`));
+  app.listen(PORT, () => console.log(`SERVER ACTIVE ON PORT ${PORT}`));
 }
 
 module.exports = app;

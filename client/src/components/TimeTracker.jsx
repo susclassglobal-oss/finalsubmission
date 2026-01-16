@@ -12,7 +12,7 @@ function TimeTracker() {
   const [isOnBreak, setIsOnBreak] = useState(false);
   const [breakTimeLeft, setBreakTimeLeft] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [lastUpdateTime, setLastUpdateTime] = useState(0);
+  const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
 
   const token = localStorage.getItem('token');
 
@@ -83,7 +83,7 @@ function TimeTracker() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isOnBreak, token, lastUpdateTime]);
+  }, [isOnBreak, token]);
 
   // Break timer
   useEffect(() => {
