@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { API_URL } from '../config/api';
+import API_BASE_URL from '../config/api';
 
 function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
   const [existingModules, setExistingModules] = useState([]);
@@ -41,7 +41,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
   const fetchModules = useCallback(async () => {
     if (!selectedSection) return;
     try {
-      const res = await fetch(`${API_URL}/api/teacher/modules/${selectedSection}`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE_URL}/api/teacher/modules/${selectedSection}`, { headers: authHeaders() });
       const data = await res.json();
       setExistingModules(Array.isArray(data) ? data : []);
     } catch (err) { console.error("Error fetching modules:", err); }
@@ -60,7 +60,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
       
       console.log("Uploading file:", file.name, file.type, file.size);
       
-      const res = await fetch(`${API_URL}/api/upload`, {
+      const res = await fetch(`${API_BASE_URL}/api/upload`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: formData
@@ -145,8 +145,8 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
     
     try {
       const url = editingModuleId 
-        ? `${API_URL}/api/teacher/module/${editingModuleId}`
-        : `${API_URL}/api/teacher/upload-module`;
+        ? `${API_BASE_URL}/api/teacher/module/${editingModuleId}`
+        : `${API_BASE_URL}/api/teacher/upload-module`;
       
       const method = editingModuleId ? 'PUT' : 'POST';
       
@@ -175,7 +175,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
 
   const handleEditModule = async (moduleId) => {
     try {
-      const res = await fetch(`${API_URL}/api/teacher/module/${moduleId}`, { 
+      const res = await fetch(`${API_BASE_URL}/api/teacher/module/${moduleId}`, { 
         headers: authHeaders() 
       });
       const module = await res.json();
@@ -193,7 +193,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
     if (!confirm("Are you sure you want to delete this module? This cannot be undone.")) return;
     
     try {
-      const res = await fetch(`${API_URL}/api/teacher/module/${moduleId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/teacher/module/${moduleId}`, {
         method: 'DELETE',
         headers: authHeaders()
       });

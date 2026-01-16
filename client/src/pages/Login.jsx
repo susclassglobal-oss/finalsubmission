@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_URL } from '../config/api';
+import API_BASE_URL from '../config/api';
 
 function Login() {
   const navigate = useNavigate();
@@ -23,7 +23,7 @@ function Login() {
     const endpoint = activeRole === 'admin' ? '/api/admin/login' : '/api/login';
 
     try {
-      const response = await fetch(`${API_URL}${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -58,7 +58,7 @@ function Login() {
     setError('');
     
     try {
-      const res = await fetch(`${API_URL}/api/verify-otp`, {
+      const res = await fetch(`${API_BASE_URL}/api/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

@@ -6,10 +6,8 @@ yarn-error.log*
 
 # Environment variables (keep .env.example instead)
 .env
-.env.*
 .env.local
 .env.*.local
-*.env
 
 # Build outputs
 dist/

@@ -5,11 +5,6 @@
 # ============================================================
 FROM node:18-alpine AS frontend-builder
 
-# Build argument for API URL
-# Default to empty string = same-origin API calls (frontend and backend on same domain)
-ARG VITE_API_URL=""
-ENV VITE_API_URL=${VITE_API_URL}
-
 WORKDIR /app/client
 
 # Copy client dependencies
@@ -21,8 +16,10 @@ RUN npm ci
 # Copy client source
 COPY client/ .
 
-# Build the frontend with environment variable
-RUN echo "Building frontend with VITE_API_URL='${VITE_API_URL}'"
+# Set API URL to empty for same-origin API calls in production
+ENV VITE_API_URL=""
+
+# Build the frontend
 RUN npm run build
 
 # ============================================================

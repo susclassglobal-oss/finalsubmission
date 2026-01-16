@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { API_URL } from '../config/api';
+import API_BASE_URL from '../config/api';
 
 function CoursePlayer() {
   const { moduleId } = useParams();
@@ -28,7 +28,7 @@ function CoursePlayer() {
 
   const fetchModuleContent = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/student/module/${moduleId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/module/${moduleId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -79,7 +79,7 @@ function CoursePlayer() {
   const handleSubmit = async () => {
     setIsProcessing(true);
     try {
-      const res = await fetch(`${API_URL}/api/student/submit-code`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/submit-code`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ moduleId, code, language, testCases: dbTestCases })

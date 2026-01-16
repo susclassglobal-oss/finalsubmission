@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_URL } from '../config/api';
+import API_BASE_URL from '../config/api';
 
 function Courses() {
   const navigate = useNavigate();
@@ -10,7 +10,7 @@ function Courses() {
 
   const fetchMyModules = useCallback(async () => {
   try {
-    const res = await fetch(`${API_URL}/api/student/my-modules`, {
+    const res = await fetch(`${API_BASE_URL}/api/student/my-modules`, {
       headers: { 
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
         'Content-Type': 'application/json'

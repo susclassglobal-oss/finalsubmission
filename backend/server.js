@@ -1,5 +1,4 @@
-// Load .env from parent directory (local dev) or use Render environment variables (production)
-require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
@@ -16,10 +15,13 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Serve static frontend files in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'public')));
-}
+// Serve static files from /public in production
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Health check endpoint for Docker/Render
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // --- CONFIGURATION ---
 const SALT_ROUNDS = 10;
@@ -85,11 +87,11 @@ const adminOnly = (req, res, next) => {
 
 // --- ROUTES: AUTHENTICATION ---
 
-// Email transporter setup - gracefully handle missing SMTP config
-let transporter = null;
-const smtpUser = process.env.SMTP_USER || process.env.ADMIN_EMAIL;
-const smtpPass = process.env.SMTP_PASSWORD || process.env.SMTP_APP_PASSWORD;
+// Email transporter configuration - uses environment variables
+const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+const smtpPass = process.env.SMTP_PASSWORD || process.env.EMAIL_PASS;
 
+let transporter = null;
 if (smtpUser && smtpPass) {
   transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -98,10 +100,22 @@ if (smtpUser && smtpPass) {
       pass: smtpPass
     }
   });
-  console.log('✓ Email transporter configured');
+  console.log('✓ Email transporter configured with:', smtpUser);
 } else {
-  console.log('⚠️ SMTP not configured - OTP emails will be logged to console instead');
+  console.warn('⚠ SMTP not configured - emails will be logged to console only');
 }
+
+// Helper function to send email without blocking
+const sendEmailAsync = (mailOptions) => {
+  if (!transporter) {
+    console.log('[EMAIL MOCK] To:', mailOptions.to, 'Subject:', mailOptions.subject);
+    return;
+  }
+  
+  transporter.sendMail(mailOptions)
+    .then(() => console.log('✓ Email sent to:', mailOptions.to))
+    .catch(err => console.error('✗ Email failed:', err.message));
+};
 
 // 1. Admin Login (Env based)
 app.post('/api/admin/login', (req, res) => {
@@ -120,80 +134,49 @@ app.post('/api/login', async (req, res) => {
     const activeRole = role.toLowerCase();
     const table = activeRole === 'student' ? 'students' : 'teachers';
 
-    console.log(`\n=== LOGIN ATTEMPT ===`);
-    console.log(`Email: ${email}, Role: ${activeRole}`);
-
     try {
         const result = await pool.query(`SELECT * FROM ${table} WHERE LOWER(email) = LOWER($1)`, [email]);
-        console.log(`User found: ${result.rows.length > 0}`);
         
         if (result.rows.length > 0) {
             const user = result.rows[0];
             const isMatch = await bcrypt.compare(password, user.password);
-            console.log(`Password match: ${isMatch}`);
             
             if (isMatch) {
                 const otp = Math.floor(100000 + Math.random() * 900000).toString();
                 const otpExpiry = new Date(Date.now() + 5 * 60000); // 5 mins
 
-                console.log(`Generated OTP: ${otp}, Expiry: ${otpExpiry}`);
-
-                try {
-                    await pool.query(
-                        `UPDATE ${table} SET otp_code = $1, otp_expiry = $2 WHERE id = $3`,
-                        [otp, otpExpiry, user.id]
-                    );
-                    console.log(`✓ OTP saved to database`);
-                } catch (dbErr) {
-                    console.error(`✗ Failed to save OTP to database:`, dbErr.message);
-                    return res.status(500).json({ error: "Failed to generate OTP" });
-                }
+                await pool.query(
+                    `UPDATE ${table} SET otp_code = $1, otp_expiry = $2 WHERE id = $3`,
+                    [otp, otpExpiry, user.id]
+                );
 
                 // SEND RESPONSE FIRST - don't wait for email
-                console.log(`✓ Sending mfaRequired response to frontend`);
                 res.json({ success: true, mfaRequired: true, email: user.email });
 
-                // Send OTP via email in background (fire-and-forget)
-                if (transporter) {
-                    console.log(`Sending email to ${email} in background...`);
-                    const mailOptions = {
-                        from: process.env.SMTP_USER || process.env.ADMIN_EMAIL,
-                        to: email,
-                        subject: 'Your Portal Access Code',
-                        html: `
-                            <div style="font-family: sans-serif; text-align: center; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                                <h2 style="color: #333;">Security Verification</h2>
-                                <p style="color: #666;">Use the code below to complete your login:</p>
-                                <h1 style="color: #10b981; font-size: 40px; letter-spacing: 5px;">${otp}</h1>
-                                <p style="color: #999; font-size: 12px;">This code expires in 5 minutes.</p>
-                            </div>
-                        `
-                    };
-
-                    // Don't await - let it run in background
-                    transporter.sendMail(mailOptions)
-                        .then(() => console.log(`✓ OTP email sent to ${email}`))
-                        .catch(err => {
-                            console.error(`✗ Email failed:`, err.message);
-                            console.log(`⚠️ OTP for ${email}: ${otp} (email failed, check console)`);
-                        });
-                } else {
-                    console.log(`⚠️ OTP for ${email}: ${otp} (SMTP not configured)`);
-                }
-                
-                return; // Response already sent
+                // Then send email in background (non-blocking)
+                const mailOptions = {
+                    from: smtpUser || 'noreply@susclass.com',
+                    to: email,
+                    subject: 'Your Portal Access Code',
+                    html: `
+                        <div style="font-family: sans-serif; text-align: center; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                            <h2 style="color: #333;">Security Verification</h2>
+                            <p style="color: #666;">Use the code below to complete your login:</p>
+                            <h1 style="color: #10b981; font-size: 40px; letter-spacing: 5px;">${otp}</h1>
+                            <p style="color: #999; font-size: 12px;">This code expires in 5 minutes.</p>
+                        </div>
+                    `
+                };
+                sendEmailAsync(mailOptions);
             } else {
-                console.log(`✗ Incorrect password`);
-                return res.status(401).json({ success: false, message: "Incorrect Password" });
+                res.status(401).json({ success: false, message: "Incorrect Password" });
             }
         } else {
-            console.log(`✗ Account not found`);
-            return res.status(404).json({ success: false, message: "Account not found" });
+            res.status(404).json({ success: false, message: "Account not found" });
         }
     } catch (err) {
-        console.error("Login Error:", err.message);
-        console.error("Full error:", err);
-        return res.status(500).json({ error: "Database or Mailer error: " + err.message });
+        console.error("Login Error:", err);
+        res.status(500).json({ error: "Database error" });
     }
 });
 // 3. Verify OTP - Step 2: The Final Authentication
@@ -1273,23 +1256,18 @@ app.post('/api/student/test/submit', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Test not found" });
     }
     
-    const { questions: rawQuestions, total_questions, deadline } = testResult.rows[0];
-    
-    // Parse questions if stored as JSON string (SQLite) vs object (PostgreSQL)
-    const questions = typeof rawQuestions === 'string' ? JSON.parse(rawQuestions) : rawQuestions;
-    console.log("Test Questions (parsed):", JSON.stringify(questions).substring(0, 200));
-    console.log("Total questions:", questions.length);
+    const { questions, total_questions, deadline } = testResult.rows[0];
+    console.log("Test Questions:", questions);
     
     // CALCULATE SCORE IN BACKEND (more reliable than SQL trigger)
     let correct_count = 0;
     
     for (let i = 0; i < questions.length; i++) {
       const question = questions[i];
-      // Student answers use 1-indexed keys: {"1": "A", "2": "B", ...}
-      const studentAnswer = answers[(i + 1).toString()];
+      const studentAnswer = answers[i.toString()]; // answers is {"0": "A", "1": "B", ...}
       const correctAnswer = question.correct;
       
-      console.log(`Q${i + 1}: Student="${studentAnswer}" vs Correct="${correctAnswer}"`);
+      console.log(`Q${i}: Student="${studentAnswer}" vs Correct="${correctAnswer}"`);
       
       // Case-insensitive comparison
       if (studentAnswer && correctAnswer && 
@@ -1500,93 +1478,6 @@ app.post('/api/student/submit-code', authenticateToken, async (req, res) => {
 // NOTIFICATION SYSTEM ENDPOINTS
 // ============================================================
 
-// Get in-app notifications inbox
-app.get('/api/notifications/inbox', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const userType = req.user.role;
-    
-    const result = await pool.query(
-      `SELECT id, event_code, title, message, link, is_read, metadata, created_at
-       FROM in_app_notifications 
-       WHERE user_id = $1 AND user_type = $2
-       ORDER BY created_at DESC
-       LIMIT 50`,
-      [userId, userType]
-    );
-    
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching notifications:', err);
-    res.status(500).json({ error: 'Failed to fetch notifications' });
-  }
-});
-
-// Get unread notification count
-app.get('/api/notifications/unread-count', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const userType = req.user.role;
-    
-    const result = await pool.query(
-      `SELECT COUNT(*) as count FROM in_app_notifications 
-       WHERE user_id = $1 AND user_type = $2 AND is_read = false`,
-      [userId, userType]
-    );
-    
-    res.json({ count: parseInt(result.rows[0]?.count || 0) });
-  } catch (err) {
-    console.error('Error fetching unread count:', err);
-    res.status(500).json({ error: 'Failed to fetch unread count' });
-  }
-});
-
-// Mark single notification as read
-app.patch('/api/notifications/:id/read', authenticateToken, async (req, res) => {
-  try {
-    const notificationId = req.params.id;
-    const userId = req.user.id;
-    const userType = req.user.role;
-    
-    const result = await pool.query(
-      `UPDATE in_app_notifications 
-       SET is_read = true 
-       WHERE id = $1 AND user_id = $2 AND user_type = $3
-       RETURNING id`,
-      [notificationId, userId, userType]
-    );
-    
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Notification not found' });
-    }
-    
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Error marking notification as read:', err);
-    res.status(500).json({ error: 'Failed to mark notification as read' });
-  }
-});
-
-// Mark all notifications as read
-app.patch('/api/notifications/read-all', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const userType = req.user.role;
-    
-    await pool.query(
-      `UPDATE in_app_notifications 
-       SET is_read = true 
-       WHERE user_id = $1 AND user_type = $2 AND is_read = false`,
-      [userId, userType]
-    );
-    
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Error marking all notifications as read:', err);
-    res.status(500).json({ error: 'Failed to mark notifications as read' });
-  }
-});
-
 // Get user notification preferences
 app.get('/api/notifications/preferences', authenticateToken, async (req, res) => {
   try {
@@ -1657,6 +1548,93 @@ app.get('/api/notifications/history', authenticateToken, async (req, res) => {
   }
 });
 
+// ============================================================
+// IN-APP NOTIFICATIONS API
+// ============================================================
+
+// Get user's notification inbox
+app.get('/api/notifications/inbox', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userType = req.user.role;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = parseInt(req.query.offset) || 0;
+
+    const result = await pool.query(
+      `SELECT * FROM in_app_notifications 
+       WHERE recipient_id = $1 AND recipient_type = $2
+       ORDER BY created_at DESC
+       LIMIT $3 OFFSET $4`,
+      [userId, userType, limit, offset]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get Inbox Error:', err);
+    res.status(500).json({ error: 'Failed to load notifications' });
+  }
+});
+
+// Get unread notification count
+app.get('/api/notifications/unread-count', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userType = req.user.role;
+
+    const result = await pool.query(
+      `SELECT COUNT(*) as count FROM in_app_notifications 
+       WHERE recipient_id = $1 AND recipient_type = $2 AND is_read = false`,
+      [userId, userType]
+    );
+
+    res.json({ count: parseInt(result.rows[0].count) });
+  } catch (err) {
+    console.error('Get Unread Count Error:', err);
+    res.status(500).json({ error: 'Failed to get unread count' });
+  }
+});
+
+// Mark single notification as read
+app.patch('/api/notifications/:id/read', authenticateToken, async (req, res) => {
+  try {
+    const notificationId = req.params.id;
+    const userId = req.user.id;
+    const userType = req.user.role;
+
+    await pool.query(
+      `UPDATE in_app_notifications 
+       SET is_read = true, read_at = NOW()
+       WHERE id = $1 AND recipient_id = $2 AND recipient_type = $3`,
+      [notificationId, userId, userType]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Mark Read Error:', err);
+    res.status(500).json({ error: 'Failed to mark as read' });
+  }
+});
+
+// Mark all notifications as read
+app.patch('/api/notifications/read-all', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userType = req.user.role;
+
+    await pool.query(
+      `UPDATE in_app_notifications 
+       SET is_read = true, read_at = NOW()
+       WHERE recipient_id = $1 AND recipient_type = $2 AND is_read = false`,
+      [userId, userType]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Mark All Read Error:', err);
+    res.status(500).json({ error: 'Failed to mark all as read' });
+  }
+});
+
 // Get notification statistics (admin/teacher)
 app.get('/api/notifications/stats', authenticateToken, async (req, res) => {
   try {
@@ -1675,25 +1653,6 @@ app.get('/api/notifications/stats', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Get Notification Stats Error:', err);
     res.status(500).json({ error: 'Failed to load notification statistics' });
-  }
-});
-
-// Health check endpoint for Docker/Render
-app.get('/api/health', async (req, res) => {
-  try {
-    // Simple database connectivity check
-    await pool.query('SELECT 1');
-    res.json({ 
-      status: 'healthy', 
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime()
-    });
-  } catch (err) {
-    res.status(503).json({ 
-      status: 'unhealthy', 
-      error: 'Database connection failed',
-      timestamp: new Date().toISOString()
-    });
   }
 });
 
@@ -1719,39 +1678,15 @@ if (process.env.ENABLE_DEV_ENDPOINTS === 'true' || process.env.NODE_ENV !== 'pro
   });
 }
 
-// Serve React app for all non-API routes in production (SPA catch-all)
-if (process.env.NODE_ENV === 'production') {
-  const fs = require('fs');
-  const publicIndexPath = path.join(__dirname, 'public', 'index.html');
-  const hasPublicIndex = fs.existsSync(publicIndexPath);
-  
-  if (hasPublicIndex) {
-    app.get('*', (req, res) => {
-      // Don't catch API routes
-      if (req.path.startsWith('/api/')) {
-        return res.status(404).json({ error: 'API endpoint not found' });
-      }
-      res.sendFile(publicIndexPath);
-    });
+// SPA fallback - serve index.html for any non-API routes
+app.get('*', (req, res) => {
+  // Only serve index.html for non-API routes
+  if (!req.path.startsWith('/api/')) {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
   } else {
-    // API-only mode: No frontend bundled
-    console.log('⚠️  No public/index.html found - running in API-only mode');
-    console.log('   Frontend should be deployed separately or build frontend first');
-    app.get('/', (req, res) => {
-      res.json({
-        message: 'Sustainable Classroom API',
-        status: 'running',
-        mode: 'api-only',
-        note: 'Frontend not bundled. Deploy frontend separately or use Docker build.',
-        endpoints: {
-          health: '/api/health',
-          login: '/api/login',
-          admin: '/api/admin/*'
-        }
-      });
-    });
+    res.status(404).json({ error: 'API endpoint not found' });
   }
-}
+});
 
 // Export app for testing, only listen if run directly
 if (require.main === module) {

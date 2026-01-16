@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ModuleBuilder from './ModuleBuilder';
-import { API_URL } from '../config/api';
+import API_BASE_URL from '../config/api';
 
 function TeacherDashboard() {
   const navigate = useNavigate();
@@ -116,7 +116,7 @@ function TeacherDashboard() {
 // In TeacherDashboard.jsx, ensure this part looks like this:
 const fetchTeacherProfile = useCallback(async () => {
   try {
-    const res = await fetch(`${API_URL}/api/teacher/me`, { headers: authHeaders() });
+    const res = await fetch(`${API_BASE_URL}/api/teacher/me`, { headers: authHeaders() });
     if (!res.ok) { 
       console.error("Failed to fetch teacher profile, status:", res.status);
       if (res.status === 401 || res.status === 403) {
@@ -130,7 +130,7 @@ const fetchTeacherProfile = useCallback(async () => {
     setTeacherInfo(data);
     
     // Fetch teacher's allocated students from new system
-    const allocRes = await fetch(`${API_URL}/api/teacher/my-students`, {
+    const allocRes = await fetch(`${API_BASE_URL}/api/teacher/my-students`, {
       headers: authHeaders()
     });
     
@@ -183,7 +183,7 @@ const fetchTeacherProfile = useCallback(async () => {
 
       try {
         // Fetch from new allocation system
-        const res = await fetch(`${API_URL}/api/teacher/my-students`, { 
+        const res = await fetch(`${API_BASE_URL}/api/teacher/my-students`, { 
           headers: authHeaders() 
         });
         
@@ -227,7 +227,7 @@ const fetchTeacherProfile = useCallback(async () => {
   const fetchTests = useCallback(async () => {
     if (!selectedSection) return;
     try {
-      const res = await fetch(`${API_URL}/api/teacher/tests/${encodeURIComponent(selectedSection)}`, {
+      const res = await fetch(`${API_BASE_URL}/api/teacher/tests/${encodeURIComponent(selectedSection)}`, {
         headers: authHeaders()
       });
       const data = await res.json();
@@ -246,7 +246,7 @@ const fetchTeacherProfile = useCallback(async () => {
   // Fetch test submissions for a specific test
   const fetchTestSubmissions = useCallback(async (testId) => {
     try {
-      const res = await fetch(`${API_URL}/api/teacher/test/${testId}/submissions`, {
+      const res = await fetch(`${API_BASE_URL}/api/teacher/test/${testId}/submissions`, {
         headers: authHeaders()
       });
       const data = await res.json();
@@ -338,7 +338,7 @@ const fetchTeacherProfile = useCallback(async () => {
     }
     
     try {
-      const res = await fetch(`${API_URL}/api/teacher/test/create`, {
+      const res = await fetch(`${API_BASE_URL}/api/teacher/test/create`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
@@ -368,13 +368,13 @@ const fetchTeacherProfile = useCallback(async () => {
   const viewStudentProgress = async (student) => {
     try {
       // Fetch test progress
-      const res = await fetch(`${API_URL}/api/teacher/student/${student.id}/progress`, {
+      const res = await fetch(`${API_BASE_URL}/api/teacher/student/${student.id}/progress`, {
         headers: authHeaders()
       });
       const testData = await res.json();
       
       // Fetch module progress
-      const moduleRes = await fetch(`${API_URL}/api/teacher/student/${student.id}/module-progress`, {
+      const moduleRes = await fetch(`${API_BASE_URL}/api/teacher/student/${student.id}/module-progress`, {
         headers: authHeaders()
       });
       const moduleData = await moduleRes.json();

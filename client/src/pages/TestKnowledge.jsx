@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_URL } from '../config/api';
+import API_BASE_URL from '../config/api';
 
 export default function TestKnowledge() {
   const navigate = useNavigate();
@@ -21,7 +21,7 @@ export default function TestKnowledge() {
   
   const fetchTests = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/student/tests`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/tests`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -35,7 +35,7 @@ export default function TestKnowledge() {
   
   const startTest = async (testId) => {
     try {
-      const res = await fetch(`${API_URL}/api/student/test/${testId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/test/${testId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -59,7 +59,7 @@ export default function TestKnowledge() {
     const timeTaken = Math.floor((Date.now() - startTime) / 1000);
     
     try {
-      const res = await fetch(`${API_URL}/api/student/test/submit`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/test/submit`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

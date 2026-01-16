@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_URL } from '../config/api';
+import API_BASE_URL from '../config/api';
 
 export default function StudentProfile() {
   const navigate = useNavigate();
@@ -15,7 +15,7 @@ export default function StudentProfile() {
         const token = localStorage.getItem('token');
         
         // Fetch student profile
-        const profileRes = await fetch(`${API_URL}/api/student/profile`, {
+        const profileRes = await fetch(`${API_BASE_URL}/api/student/profile`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -24,7 +24,7 @@ export default function StudentProfile() {
         setStudent(profileData);
         
         // Fetch test progress
-        const progressRes = await fetch(`${API_URL}/api/student/progress`, {
+        const progressRes = await fetch(`${API_BASE_URL}/api/student/progress`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -34,7 +34,7 @@ export default function StudentProfile() {
         }
         
         // Fetch module progress
-        const moduleRes = await fetch(`${API_URL}/api/student/module-progress`, {
+        const moduleRes = await fetch(`${API_BASE_URL}/api/student/module-progress`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
