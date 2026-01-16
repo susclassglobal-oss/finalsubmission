@@ -134,13 +134,11 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
       }
       stepData = codingProblem;
     } else if (contentType === 'code') {
-      // Code example
-      if (!codeStarter) return alert("Please add some code");
-      stepData = codeStarter;
+      // Code example - don't require content, use default starter code
+      stepData = codeStarter || "// Write your code here";
     } else {
-      // Text content
-      if (!textData) return alert("Please add some text content");
-      stepData = textData;
+      // Text content - don't require content, use placeholder if empty
+      stepData = textData || "Sample text content";
     }
 
     const newStep = { type: contentType, header: topicTitle, data: stepData, id: Date.now() };
@@ -172,7 +170,14 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
   };
 
   const handleUploadFullModule = async () => {
-    if (moduleQueue.length === 0) return alert("Roadmap is empty!");
+    console.log("Upload attempt - moduleQueue:", moduleQueue);
+    console.log("Upload attempt - targetSection:", targetSection);
+    console.log("Upload attempt - targetSubject:", targetSubject);
+    
+    if (moduleQueue.length === 0) {
+      console.log("ERROR: Roadmap is empty!");
+      return alert("Roadmap is empty! Please add at least one step first.");
+    }
     if (!targetSection) return alert("Please select a section for this module!");
     if (!targetSubject) return alert("Please select a subject for this module!");
     
@@ -605,10 +610,21 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
 
               <div className="flex gap-4">
                 <button onClick={addStepToQueue} disabled={uploadingVideo} className="flex-1 bg-emerald-100 text-emerald-700 p-6 rounded-2xl font-black uppercase text-xs hover:bg-emerald-200 disabled:opacity-50">
-                  {uploadingVideo ? 'Uploading...' : 'Add Step'}
+                  {uploadingVideo ? 'Uploading...' : 'Add Step to Queue'}
                 </button>
-                <button onClick={handleUploadFullModule} disabled={uploadingVideo} className="flex-1 bg-slate-900 text-white p-6 rounded-2xl font-black uppercase text-xs hover:bg-slate-800 shadow-xl disabled:opacity-50">
-                  {editingModuleId ? 'Update Module' : 'Publish Module'}
+                <button 
+                  onClick={() => {
+                    console.log("Publish button clicked - moduleQueue:", moduleQueue);
+                    handleUploadFullModule();
+                  }} 
+                  disabled={uploadingVideo || moduleQueue.length === 0} 
+                  className={`flex-1 p-6 rounded-2xl font-black uppercase text-xs shadow-xl disabled:opacity-50 ${
+                    moduleQueue.length === 0 
+                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                      : 'bg-slate-900 text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {editingModuleId ? 'Update Module' : `Publish Module (${moduleQueue.length} steps)`}
                 </button>
               </div>
             </div>
