@@ -11,6 +11,14 @@ function Login() {
   const [showOtp, setShowOtp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Password Reset State
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetOtp, setResetOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [resetStep, setResetStep] = useState(1); // 1: email, 2: otp+password
+  const [resetMessage, setResetMessage] = useState('');
 
   // STEP 1: Handle Initial Login (Email/Password check + Trigger OTP)
   const handleLogin = async (e) => {
@@ -98,6 +106,71 @@ function Login() {
     else navigate('/dashboard');
   };
 
+  // Password Reset: Request OTP
+  const handleResetRequest = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setResetMessage('');
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/password-reset/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resetEmail.trim(), role: role.toLowerCase() })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        setResetStep(2);
+        setResetMessage('Reset code sent to your email');
+      } else {
+        setResetMessage(data.error || 'Failed to send reset code');
+      }
+    } catch (err) {
+      setResetMessage('Connection failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Password Reset: Confirm with OTP
+  const handleResetConfirm = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setResetMessage('');
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/password-reset/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: resetEmail.trim(), 
+          role: role.toLowerCase(),
+          otp: resetOtp.trim(),
+          newPassword 
+        })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        setResetMessage('Password reset successful! You can now login.');
+        setTimeout(() => {
+          setShowResetModal(false);
+          setResetStep(1);
+          setResetEmail('');
+          setResetOtp('');
+          setNewPassword('');
+        }, 2000);
+      } else {
+        setResetMessage(data.error || 'Failed to reset password');
+      }
+    } catch (err) {
+      setResetMessage('Connection failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex h-screen items-center justify-center bg-[#F8FAFC] font-sans relative">
       {/* MAIN LOGIN CARD */}
@@ -123,7 +196,7 @@ function Login() {
           </h2>
           {error && (
             <div className="mt-6 p-3 bg-red-50 text-red-500 text-[10px] font-bold rounded-xl uppercase border border-red-100 animate-shake">
-              <span>⚠️</span> {error}
+              {error}
             </div>
           )}
         </div>
@@ -151,6 +224,17 @@ function Login() {
             {loading ? 'Verifying...' : 'Authenticate Access'}
           </button>
         </form>
+        
+        {/* Forgot Password Link */}
+        {role !== 'admin' && (
+          <button 
+            type="button"
+            onClick={() => { setShowResetModal(true); setResetEmail(email); }}
+            className="mt-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest block w-full text-center hover:text-emerald-600 transition-colors"
+          >
+            Forgot Password?
+          </button>
+        )}
       </div>
 
       {/* OTP POPUP OVERLAY */}
@@ -166,7 +250,7 @@ function Login() {
                 maxLength="6" 
                 required 
                 value={otp}
-                placeholder="••••••" 
+                placeholder="------" 
                 className="w-full text-center text-3xl tracking-[0.3em] font-black rounded-2xl border-2 border-slate-100 bg-slate-50 p-5 outline-none focus:border-emerald-500" 
                 onChange={(e) => setOtp(e.target.value)} 
               />
@@ -185,6 +269,80 @@ function Login() {
                 Cancel
               </button>
             </form>
+          </div>
+        </div>
+      )}
+      
+      {/* PASSWORD RESET MODAL */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md px-4">
+          <div className="w-full max-w-sm rounded-[2.5rem] bg-white p-10 shadow-2xl border border-slate-100 text-center">
+            <h3 className="text-xl font-black uppercase italic tracking-tighter mb-2">Reset <span className="text-emerald-500">Password</span></h3>
+            <p className="text-[10px] font-bold text-slate-400 uppercase mb-6 tracking-widest">
+              {resetStep === 1 ? 'Enter your email to receive a reset code' : 'Enter code and new password'}
+            </p>
+            
+            {resetMessage && (
+              <div className={`mb-4 p-3 text-[10px] font-bold rounded-xl uppercase ${resetMessage.includes('success') ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
+                {resetMessage}
+              </div>
+            )}
+            
+            {resetStep === 1 ? (
+              <form onSubmit={handleResetRequest} className="space-y-4">
+                <input 
+                  type="email" 
+                  required 
+                  value={resetEmail}
+                  placeholder="Your Email" 
+                  className="w-full rounded-2xl border bg-slate-50/50 p-4 text-sm font-bold outline-none focus:bg-white focus:border-emerald-500 transition-all" 
+                  onChange={(e) => setResetEmail(e.target.value)} 
+                />
+                <button 
+                  type="submit" 
+                  disabled={loading} 
+                  className="w-full rounded-2xl bg-emerald-600 py-4 font-black text-white text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                >
+                  {loading ? 'Sending...' : 'Send Reset Code'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleResetConfirm} className="space-y-4">
+                <input 
+                  type="text" 
+                  maxLength="6" 
+                  required 
+                  value={resetOtp}
+                  placeholder="Reset Code" 
+                  className="w-full text-center text-2xl tracking-[0.2em] font-black rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 outline-none focus:border-emerald-500" 
+                  onChange={(e) => setResetOtp(e.target.value)} 
+                />
+                <input 
+                  type="password" 
+                  required 
+                  minLength="6"
+                  value={newPassword}
+                  placeholder="New Password (min 6 chars)" 
+                  className="w-full rounded-2xl border bg-slate-50/50 p-4 text-sm font-bold outline-none focus:bg-white focus:border-emerald-500 transition-all" 
+                  onChange={(e) => setNewPassword(e.target.value)} 
+                />
+                <button 
+                  type="submit" 
+                  disabled={loading} 
+                  className="w-full rounded-2xl bg-emerald-600 py-4 font-black text-white text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                >
+                  {loading ? 'Resetting...' : 'Reset Password'}
+                </button>
+              </form>
+            )}
+            
+            <button 
+              type="button" 
+              onClick={() => { setShowResetModal(false); setResetStep(1); setResetMessage(''); }}
+              className="mt-4 text-[9px] font-black text-slate-400 uppercase tracking-widest block w-full text-center hover:text-slate-600"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

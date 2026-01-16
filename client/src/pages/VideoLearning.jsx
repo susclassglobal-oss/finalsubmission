@@ -110,7 +110,7 @@ function VideoLearning() {
                 onClick={() => setCurrentIndex(currentIndex + 1)}
                 className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
               >
-                {currentIndex === videos.length - 1 ? 'Course Finished ✨' : 'Next Lesson →'}
+                {currentIndex === videos.length - 1 ? 'Course Finished' : 'Next Lesson'}
               </button>
               
               <button
@@ -118,7 +118,7 @@ function VideoLearning() {
                 onClick={() => setCurrentIndex(currentIndex - 1)}
                 className="w-full py-4 bg-white border border-slate-200 text-slate-500 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all disabled:opacity-0"
               >
-                ← Previous
+                Previous
               </button>
             </div>
 

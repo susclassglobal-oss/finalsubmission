@@ -1,0 +1,211 @@
+import React, { useState, useEffect, useCallback } from 'react';
+
+// Eye strain prevention: recommend break after 25 minutes (Pomodoro technique)
+const BREAK_INTERVAL_MINUTES = 25;
+const BREAK_DURATION_MINUTES = 5;
+
+function TimeTracker() {
+  const [sessionTime, setSessionTime] = useState(0); // seconds
+  const [totalTime, setTotalTime] = useState(0); // seconds from localStorage
+  const [showBreakReminder, setShowBreakReminder] = useState(false);
+  const [isOnBreak, setIsOnBreak] = useState(false);
+  const [breakTimeLeft, setBreakTimeLeft] = useState(0);
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  // Load total time from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('study_total_time');
+    if (saved) {
+      setTotalTime(parseInt(saved, 10));
+    }
+  }, []);
+
+  // Session timer
+  useEffect(() => {
+    if (isOnBreak) return;
+    
+    const interval = setInterval(() => {
+      setSessionTime(prev => {
+        const newTime = prev + 1;
+        
+        // Check if break reminder should show (every 25 minutes)
+        if (newTime > 0 && newTime % (BREAK_INTERVAL_MINUTES * 60) === 0) {
+          setShowBreakReminder(true);
+        }
+        
+        return newTime;
+      });
+      
+      // Update total time
+      setTotalTime(prev => {
+        const newTotal = prev + 1;
+        localStorage.setItem('study_total_time', newTotal.toString());
+        return newTotal;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isOnBreak]);
+
+  // Break timer
+  useEffect(() => {
+    if (!isOnBreak || breakTimeLeft <= 0) return;
+    
+    const interval = setInterval(() => {
+      setBreakTimeLeft(prev => {
+        if (prev <= 1) {
+          setIsOnBreak(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isOnBreak, breakTimeLeft]);
+
+  const formatTime = useCallback((seconds) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hrs > 0) {
+      return `${hrs}h ${mins}m`;
+    }
+    return `${mins}m ${secs.toString().padStart(2, '0')}s`;
+  }, []);
+
+  const startBreak = () => {
+    setShowBreakReminder(false);
+    setIsOnBreak(true);
+    setBreakTimeLeft(BREAK_DURATION_MINUTES * 60);
+  };
+
+  const skipBreak = () => {
+    setShowBreakReminder(false);
+  };
+
+  const endBreak = () => {
+    setIsOnBreak(false);
+    setBreakTimeLeft(0);
+  };
+
+  if (isMinimized) {
+    return (
+      <button 
+        onClick={() => setIsMinimized(false)}
+        className="fixed bottom-4 right-4 z-40 bg-slate-900 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-emerald-600 transition-colors"
+      >
+        {formatTime(sessionTime)}
+      </button>
+    );
+  }
+
+  return (
+    <>
+      {/* Time Tracker Widget */}
+      <div className="fixed bottom-4 right-4 z-40 bg-white rounded-2xl shadow-xl border border-slate-100 p-4 w-56">
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Study Time</span>
+          <button 
+            onClick={() => setIsMinimized(true)}
+            className="text-slate-300 hover:text-slate-600 text-xs"
+          >
+            -
+          </button>
+        </div>
+        
+        {isOnBreak ? (
+          <div className="text-center">
+            <p className="text-2xl font-black text-emerald-600">{formatTime(breakTimeLeft)}</p>
+            <p className="text-[10px] text-slate-500 uppercase font-bold mt-1">Break Time</p>
+            <p className="text-[9px] text-slate-400 mt-2">Rest your eyes, look away from screen</p>
+            <button 
+              onClick={endBreak}
+              className="mt-3 text-[9px] font-bold text-slate-400 hover:text-slate-600 uppercase"
+            >
+              End Break Early
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="text-center mb-3">
+              <p className="text-2xl font-black text-slate-900">{formatTime(sessionTime)}</p>
+              <p className="text-[10px] text-slate-400 uppercase font-bold">This Session</p>
+            </div>
+            
+            <div className="border-t border-slate-100 pt-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] text-slate-400 uppercase font-bold">Total</span>
+                <span className="text-sm font-bold text-slate-600">{formatTime(totalTime)}</span>
+              </div>
+            </div>
+            
+            {/* Progress to next break */}
+            <div className="mt-3">
+              <div className="flex justify-between text-[9px] text-slate-400 mb-1">
+                <span>Next break</span>
+                <span>{BREAK_INTERVAL_MINUTES - Math.floor((sessionTime % (BREAK_INTERVAL_MINUTES * 60)) / 60)}m</span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-emerald-500 transition-all"
+                  style={{ width: `${((sessionTime % (BREAK_INTERVAL_MINUTES * 60)) / (BREAK_INTERVAL_MINUTES * 60)) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Break Reminder Modal */}
+      {showBreakReminder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md px-4">
+          <div className="w-full max-w-sm rounded-[2.5rem] bg-white p-10 shadow-2xl border border-slate-100 text-center">
+            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </div>
+            
+            <h3 className="text-xl font-black uppercase italic tracking-tighter mb-2">
+              Time for a <span className="text-emerald-500">Break</span>
+            </h3>
+            <p className="text-sm text-slate-500 mb-6">
+              You've been studying for {BREAK_INTERVAL_MINUTES} minutes. 
+              Take a {BREAK_DURATION_MINUTES}-minute break to rest your eyes.
+            </p>
+            
+            <div className="bg-slate-50 rounded-2xl p-4 mb-6 text-left">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Eye Care Tips</p>
+              <ul className="text-xs text-slate-600 space-y-1">
+                <li>- Look at something 20 feet away</li>
+                <li>- Blink frequently to moisturize eyes</li>
+                <li>- Stretch your neck and shoulders</li>
+                <li>- Get some water</li>
+              </ul>
+            </div>
+            
+            <div className="flex gap-3">
+              <button 
+                onClick={skipBreak}
+                className="flex-1 rounded-xl border border-slate-200 py-3 font-bold text-slate-500 text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+              >
+                Skip
+              </button>
+              <button 
+                onClick={startBreak}
+                className="flex-1 rounded-xl bg-emerald-600 py-3 font-black text-white text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
+              >
+                Start Break
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+export default TimeTracker;

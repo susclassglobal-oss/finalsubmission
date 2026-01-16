@@ -70,7 +70,7 @@ export default function StudentProfile() {
         
         {/* TOP NAV */}
         <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-slate-400 hover:text-emerald-600 font-bold transition-colors mb-12 text-xs uppercase tracking-widest">
-          ← Back to Dashboard
+          Back to Dashboard
         </button>
 
         {/* PROGRESS TRACKER SECTION */}

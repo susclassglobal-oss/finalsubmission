@@ -260,6 +260,154 @@ app.post('/api/verify-otp', async (req, res) => {
     }
 });
 
+// --- PASSWORD RESET ---
+
+// Request password reset (sends OTP to email)
+app.post('/api/password-reset/request', async (req, res) => {
+  const { email, role } = req.body;
+  
+  if (!email || !role) {
+    return res.status(400).json({ error: "Email and role required" });
+  }
+  
+  const table = role.toLowerCase() === 'teacher' ? 'teachers' : 'students';
+  
+  try {
+    // Check if user exists
+    const result = await pool.query(
+      `SELECT id, name, email FROM ${table} WHERE LOWER(email) = LOWER($1)`,
+      [email]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    const user = result.rows[0];
+    
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
+    // Store OTP
+    await pool.query(
+      `UPDATE ${table} SET otp_code = $1, otp_expiry = $2 WHERE id = $3`,
+      [otp, expiry, user.id]
+    );
+    
+    // Send email via Mailjet
+    console.log('[PASSWORD RESET] Sending OTP to:', email);
+    
+    if (mailjet) {
+      try {
+        await mailjet.post('send', { version: 'v3.1' }).request({
+          Messages: [{
+            From: { Email: 'susclass.global@gmail.com', Name: 'SusClass' },
+            To: [{ Email: email }],
+            Subject: 'Password Reset Code',
+            HTMLPart: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
+                <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.06);">
+                  <h2 style="color: #111827; margin-bottom: 16px; font-weight: 700;">Password Reset Request</h2>
+                  <p style="color: #1f2937; line-height: 1.6;">Hello <strong>${user.name}</strong>,</p>
+                  <p style="color: #1f2937; line-height: 1.6;">Use this code to reset your password:</p>
+                  <div style="background-color: #111827; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                    <span style="color: #ffffff; font-size: 32px; font-weight: bold; letter-spacing: 8px;">${otp}</span>
+                  </div>
+                  <p style="color: #6b7280; font-size: 14px;">This code expires in 10 minutes.</p>
+                  <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">If you didn't request this, please ignore this email.</p>
+                </div>
+              </div>
+            `
+          }]
+        });
+        console.log('[PASSWORD RESET] Email sent successfully');
+      } catch (emailErr) {
+        console.error('[PASSWORD RESET] Email failed:', emailErr.message);
+        console.log('[PASSWORD RESET] OTP for testing:', otp);
+      }
+    } else {
+      console.log('[PASSWORD RESET] No Mailjet - OTP:', otp);
+    }
+    
+    res.json({ success: true, message: "Reset code sent to email" });
+  } catch (err) {
+    console.error("Password Reset Request Error:", err);
+    res.status(500).json({ error: "Failed to process request" });
+  }
+});
+
+// Verify OTP and reset password
+app.post('/api/password-reset/confirm', async (req, res) => {
+  const { email, role, otp, newPassword } = req.body;
+  
+  if (!email || !role || !otp || !newPassword) {
+    return res.status(400).json({ error: "All fields required" });
+  }
+  
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: "Password must be at least 6 characters" });
+  }
+  
+  const table = role.toLowerCase() === 'teacher' ? 'teachers' : 'students';
+  
+  try {
+    // Verify OTP
+    const result = await pool.query(
+      `SELECT id FROM ${table} WHERE LOWER(email) = LOWER($1) AND otp_code = $2 AND otp_expiry > NOW()`,
+      [email, otp]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: "Invalid or expired code" });
+    }
+    
+    const userId = result.rows[0].id;
+    
+    // Hash new password and update
+    const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await pool.query(
+      `UPDATE ${table} SET password = $1, otp_code = NULL, otp_expiry = NULL WHERE id = $2`,
+      [hashed, userId]
+    );
+    
+    console.log('[PASSWORD RESET] Password updated for:', email);
+    res.json({ success: true, message: "Password reset successful" });
+  } catch (err) {
+    console.error("Password Reset Confirm Error:", err);
+    res.status(500).json({ error: "Failed to reset password" });
+  }
+});
+
+// Admin reset any user's password
+app.post('/api/admin/reset-password', authenticateToken, adminOnly, async (req, res) => {
+  const { userId, userType, newPassword } = req.body;
+  
+  if (!userId || !userType || !newPassword) {
+    return res.status(400).json({ error: "userId, userType, and newPassword required" });
+  }
+  
+  const table = userType.toLowerCase() === 'teacher' ? 'teachers' : 'students';
+  
+  try {
+    const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    const result = await pool.query(
+      `UPDATE ${table} SET password = $1 WHERE id = $2 RETURNING email`,
+      [hashed, userId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    console.log('[ADMIN] Password reset for:', result.rows[0].email);
+    res.json({ success: true, message: "Password reset successful" });
+  } catch (err) {
+    console.error("Admin Password Reset Error:", err);
+    res.status(500).json({ error: "Failed to reset password" });
+  }
+});
+
 // --- ROUTES: ADMIN MANAGEMENT ---
 
 // 3. Register Teacher

@@ -162,7 +162,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
       });
       
       if (res.ok) {
-        alert(editingModuleId ? "✓ Module Updated!" : "🚀 Module Published!");
+        alert(editingModuleId ? "Module Updated!" : "Module Published!");
         setModuleQueue([]); 
         setIsBuilding(false); 
         setEditingModuleId(null);
@@ -199,7 +199,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
       });
       
       if (res.ok) {
-        alert("✓ Module Deleted!");
+        alert("Module Deleted!");
         fetchModules();
       } else {
         alert("Failed to delete module");

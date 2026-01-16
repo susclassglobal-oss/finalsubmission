@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import TimeTracker from '../components/TimeTracker';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -105,9 +106,12 @@ function Dashboard() {
         </section>
 
         <footer className="mt-20 text-xs text-slate-300 font-medium">
-          SUSTAINABLE CLASSROOM INITIATIVE • 2026
+          SUSTAINABLE CLASSROOM INITIATIVE - 2026
         </footer>
       </main>
+      
+      {/* Time Tracker Widget */}
+      <TimeTracker />
     </div>
   );
 }

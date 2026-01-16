@@ -101,7 +101,15 @@ export default function TestKnowledge() {
     return (
       <div className="min-h-screen bg-[#fdfdfd] flex items-center justify-center p-6 font-sans">
         <div className="max-w-xl w-full text-center space-y-8">
-          <div className="text-6xl mb-6">{result.percentage >= 60 ? '🎉' : '📚'}</div>
+          <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 ${result.percentage >= 60 ? 'bg-emerald-100' : 'bg-amber-100'}">
+            <svg className="w-10 h-10 ${result.percentage >= 60 ? 'text-emerald-600' : 'text-amber-600'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {result.percentage >= 60 ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              )}
+            </svg>
+          </div>
           <h1 className="text-3xl font-bold text-slate-900">
             {result.percentage >= 60 ? 'Great Job!' : 'Keep Learning!'}
           </h1>
@@ -111,7 +119,7 @@ export default function TestKnowledge() {
               You scored <span className="font-bold text-emerald-600">{result.score}</span> out of {currentTest?.total_questions || result.score}
             </p>
             <p className="text-sm text-slate-400">
-              {result.status === 'late' ? '⚠️ Submitted after deadline' : '✓ Submitted on time'}
+              {result.status === 'late' ? 'Submitted after deadline' : 'Submitted on time'}
             </p>
           </div>
           <div className="flex flex-col gap-3">
@@ -206,7 +214,7 @@ export default function TestKnowledge() {
           onClick={() => navigate('/dashboard')}
           className="flex items-center gap-2 text-slate-400 hover:text-emerald-600 font-medium transition-colors mb-10 text-sm"
         >
-          ← Back to Dashboard
+          Back to Dashboard
         </button>
 
         <header className="mb-12">
@@ -254,7 +262,7 @@ export default function TestKnowledge() {
                   <p className="text-sm text-slate-500 mb-4">{test.description}</p>
                   <div className="flex items-center justify-between mb-6">
                     <span className="text-xs text-red-600 font-black uppercase">
-                      ⚠️ Overdue
+                      Overdue
                     </span>
                     <span className="text-xs text-slate-400 font-bold">
                       Was due: {new Date(test.deadline).toLocaleDateString()}

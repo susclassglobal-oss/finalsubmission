@@ -401,7 +401,9 @@ const fetchTeacherProfile = useCallback(async () => {
     console.log("TeacherDashboard: No teacher info, showing error screen");
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white">
-        <div className="text-6xl mb-4">⚠️</div>
+        <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
+          <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+        </div>
         <h2 className="text-2xl font-black text-emerald-400 mb-4">Failed to Load Profile</h2>
         <p className="text-slate-400 mb-6">Unable to fetch teacher information</p>
         <button 
@@ -425,12 +427,12 @@ const fetchTeacherProfile = useCallback(async () => {
         <h2 className="text-3xl font-black text-emerald-400 italic mb-12">TEACHER<span className="text-white">DASH</span></h2>
         <nav className="flex-1 space-y-3">
           {[
-            { id: 'students', label: 'Class Roster', icon: '👥' }, 
-            { id: 'modules', label: 'Module Builder', icon: '🛠️' },
-            { id: 'tests', label: 'MCQ Tests', icon: '📝' }
+            { id: 'students', label: 'Class Roster', icon: '' }, 
+            { id: 'modules', label: 'Module Builder', icon: '' },
+            { id: 'tests', label: 'MCQ Tests', icon: '' }
           ].map(item => (
             <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full text-left p-5 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-4 ${activeTab === item.id ? 'bg-emerald-600' : 'hover:bg-white/5 text-slate-500'}`}>
-              <span>{item.icon}</span> {item.label}
+              {item.label}
             </button>
           ))}
         </nav>
@@ -484,7 +486,7 @@ const fetchTeacherProfile = useCallback(async () => {
                       onClick={handleCloseTestView}
                       className="text-emerald-600 font-bold text-sm mb-2 hover:text-emerald-700"
                     >
-                      ← Back to Tests
+                      Back to Tests
                     </button>
                     <h2 className="text-3xl font-black text-slate-800">{selectedTest.title}</h2>
                     <p className="text-slate-500 text-sm mt-1">
@@ -764,7 +766,7 @@ const fetchTeacherProfile = useCallback(async () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="text-xs text-emerald-600 font-black">✓ {q.correct}</span>
+                            <span className="text-xs text-emerald-600 font-black">Ans: {q.correct}</span>
                             <button
                               onClick={() => setQuestions(questions.filter((_, idx) => idx !== i))}
                               className="text-red-600 hover:text-red-700 font-bold"
@@ -790,7 +792,9 @@ const fetchTeacherProfile = useCallback(async () => {
             {/* Class Roster - Filtering Interface */}
             {allAllocations.length === 0 ? (
               <div className="text-center py-24 bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
-                <div className="text-6xl mb-4">📚</div>
+                <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                </div>
                 <p className="text-slate-400 font-medium mb-2">No classes allocated yet</p>
                 <p className="text-xs text-slate-500">Contact admin to assign students to your classes</p>
               </div>
@@ -813,7 +817,7 @@ const fetchTeacherProfile = useCallback(async () => {
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      🏛️ Department & Section
+                      Department & Section
                     </button>
                     <button
                       onClick={() => {
@@ -828,7 +832,7 @@ const fetchTeacherProfile = useCallback(async () => {
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      📚 Subject
+                      Subject
                     </button>
                   </div>
                 </div>
@@ -1045,7 +1049,7 @@ const fetchTeacherProfile = useCallback(async () => {
                   {studentProgress.moduleProgress && (
                     <div className="mb-8 p-6 bg-purple-50 rounded-2xl border-2 border-purple-200">
                       <h3 className="font-black text-purple-800 mb-4 flex items-center gap-2">
-                        📚 Module Progress
+                        Module Progress
                       </h3>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="bg-white p-4 rounded-xl text-center">

@@ -81,7 +81,7 @@ function AdminDashboard() {
       const data = await res.json();
       
       if (res.ok) {
-        alert("✓ Allocation Saved!");
+        alert("Allocation Saved!");
         setSelectedStudents([]);
         setAllocationSubject("");
       } else {
@@ -103,7 +103,7 @@ function AdminDashboard() {
       const emailToCheck = activeTab === 'student' ? studentData.email : teacherData.email;
       
       if (!emailRegex.test(emailToCheck)) {
-        alert("❌ Invalid email format! Please enter a complete email address (e.g., user@example.com)");
+        alert("Invalid email format! Please enter a complete email address (e.g., user@example.com)");
         setLoading(false);
         return;
       }
@@ -142,7 +142,7 @@ function AdminDashboard() {
       });
 
       if (response.ok) {
-        alert(`✓ ${activeTab.toUpperCase()} registered successfully!`);
+        alert(`${activeTab.toUpperCase()} registered successfully!`);
         setPreview(null);
         setSelectedFile(null);
         e.target.reset();
@@ -179,7 +179,7 @@ function AdminDashboard() {
       });
       
       if (res.ok) {
-        alert("✓ Teacher Updated!");
+        alert("Teacher Updated!");
         fetchTeachers();
       }
     } catch (err) {
@@ -197,7 +197,7 @@ function AdminDashboard() {
       });
       
       if (res.ok) {
-        alert("✓ Teacher Deleted!");
+        alert("Teacher Deleted!");
         fetchTeachers();
       }
     } catch (err) {
@@ -222,7 +222,7 @@ function AdminDashboard() {
       });
       
       if (res.ok) {
-        alert("✓ Student Updated!");
+        alert("Student Updated!");
         fetchStudents();
       }
     } catch (err) {
@@ -240,7 +240,7 @@ function AdminDashboard() {
       });
       
       if (res.ok) {
-        alert("✓ Student Deleted!");
+        alert("Student Deleted!");
         fetchStudents();
       }
     } catch (err) {
