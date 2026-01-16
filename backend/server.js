@@ -84,14 +84,23 @@ const adminOnly = (req, res, next) => {
 
 // --- ROUTES: AUTHENTICATION ---
 
+// Email transporter setup - gracefully handle missing SMTP config
+let transporter = null;
+const smtpUser = process.env.SMTP_USER || process.env.ADMIN_EMAIL;
+const smtpPass = process.env.SMTP_PASSWORD || process.env.SMTP_APP_PASSWORD;
 
-const transporter = nodemailer.createTransport({
+if (smtpUser && smtpPass) {
+  transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.SMTP_USER || process.env.ADMIN_EMAIL,
-        pass: process.env.SMTP_PASSWORD || process.env.SMTP_APP_PASSWORD
+      user: smtpUser,
+      pass: smtpPass
     }
-});
+  });
+  console.log('✓ Email transporter configured');
+} else {
+  console.log('⚠️ SMTP not configured - OTP emails will be logged to console instead');
+}
 
 // 1. Admin Login (Env based)
 app.post('/api/admin/login', (req, res) => {
@@ -126,24 +135,35 @@ app.post('/api/login', async (req, res) => {
                     [otp, otpExpiry, user.id]
                 );
 
-                // --- TWEAKED: Sending real email instead of console.log ---
-                const mailOptions = {
-                    from: process.env.SMTP_USER || process.env.ADMIN_EMAIL,
-                    to: email, // Sends to the email the user just typed in the login form
-                    subject: 'Your Portal Access Code',
-                    html: `
-                        <div style="font-family: sans-serif; text-align: center; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                            <h2 style="color: #333;">Security Verification</h2>
-                            <p style="color: #666;">Use the code below to complete your login:</p>
-                            <h1 style="color: #10b981; font-size: 40px; letter-spacing: 5px;">${otp}</h1>
-                            <p style="color: #999; font-size: 12px;">This code expires in 5 minutes.</p>
-                        </div>
-                    `
-                };
+                // Send OTP via email or log to console if SMTP not configured
+                if (transporter) {
+                    const mailOptions = {
+                        from: process.env.SMTP_USER || process.env.ADMIN_EMAIL,
+                        to: email,
+                        subject: 'Your Portal Access Code',
+                        html: `
+                            <div style="font-family: sans-serif; text-align: center; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                                <h2 style="color: #333;">Security Verification</h2>
+                                <p style="color: #666;">Use the code below to complete your login:</p>
+                                <h1 style="color: #10b981; font-size: 40px; letter-spacing: 5px;">${otp}</h1>
+                                <p style="color: #999; font-size: 12px;">This code expires in 5 minutes.</p>
+                            </div>
+                        `
+                    };
 
-                await transporter.sendMail(mailOptions);
+                    try {
+                        await transporter.sendMail(mailOptions);
+                        console.log(`✓ OTP email sent to ${email}`);
+                    } catch (emailErr) {
+                        console.error('Email send failed:', emailErr.message);
+                        console.log(`⚠️ OTP for ${email}: ${otp} (email failed, use this code)`);
+                    }
+                } else {
+                    // No SMTP configured - log OTP to console for testing
+                    console.log(`⚠️ OTP for ${email}: ${otp} (SMTP not configured)`);
+                }
                 
-                // Return same response to keep your frontend working perfectly
+                // Return same response to keep your frontend working
                 res.json({ success: true, mfaRequired: true, email: user.email });
             } else {
                 res.status(401).json({ success: false, message: "Incorrect Password" });
