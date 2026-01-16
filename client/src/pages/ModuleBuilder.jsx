@@ -179,6 +179,8 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
         })
       });
       
+      const data = await res.json();
+      
       if (res.ok) {
         alert(editingModuleId ? "Module Updated!" : "Module Published!");
         setModuleQueue([]); 
@@ -187,8 +189,14 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
         setTargetSection(selectedSection || "");
         setTargetSubject("");
         fetchModules();
+      } else {
+        console.error("Upload error:", data);
+        alert("Error: " + (data.error || 'Upload failed'));
       }
-    } catch (err) { alert("Server error."); }
+    } catch (err) { 
+      console.error("Upload error:", err);
+      alert("Network error: " + err.message); 
+    }
   };
 
   const handleEditModule = async (moduleId) => {

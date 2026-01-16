@@ -770,10 +770,10 @@ app.post('/api/admin/allocate-sections', authenticateToken, adminOnly, async (re
     
     console.log("Updating teacher sections to:", updatedSections);
     
-    // Update teacher's allocated_sections
+    // Update teacher's allocated_sections - ensure it's stored as proper JSON
     await pool.query(
       'UPDATE teachers SET allocated_sections = $1 WHERE id = $2',
-      [updatedSections, teacher_id]
+      [JSON.stringify(updatedSections), teacher_id]
     );
     
     // Also create teacher_student_allocations for all students in these sections
