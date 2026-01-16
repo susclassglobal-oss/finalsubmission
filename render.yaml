@@ -1,25 +1,15 @@
 # Render.com Blueprint for Sustainable Classroom LMS
 # This file configures automatic deployment on every push
 #
-# TWO DEPLOYMENT OPTIONS:
-# 1. Docker (recommended) - Uses Dockerfile, builds frontend automatically
-# 2. Node.js - Faster builds but frontend must be deployed separately
-#
-# To use Docker: Keep current config
-# To use Node.js: Change runtime to 'node' and uncomment buildCommand
+# DEPLOYMENT: Uses Docker to build frontend + backend together
 
 services:
-  # Backend Web Service
+  # Full-Stack Web Service (Docker)
   - type: web
     name: sustainable-classroom-api
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    # Uncomment below for Node.js runtime (faster, but API-only):
-    # runtime: node
-    # rootDir: backend
-    # buildCommand: npm install
-    # startCommand: node server.js
     plan: free
     region: oregon
     healthCheckPath: /api/health
@@ -55,7 +45,7 @@ services:
       - key: FRONTEND_URL
         sync: false
       - key: VITE_API_URL
-        sync: false
+        value: ""  # Empty = same-origin API calls
 
 # Database (optional - can use external Neon PostgreSQL instead)
 # databases:
