@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import API_BASE_URL from '../config/api';
 
 // Eye strain prevention: recommend break after 25 minutes (Pomodoro technique)
 const BREAK_INTERVAL_MINUTES = 25;
 const BREAK_DURATION_MINUTES = 5;
+const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 function TimeTracker() {
   const [sessionTime, setSessionTime] = useState(0); // seconds since session start
@@ -13,8 +15,112 @@ function TimeTracker() {
   const [breakTimeLeft, setBreakTimeLeft] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
+  const [lastActivityTime, setLastActivityTime] = useState(Date.now());
+  const [isActive, setIsActive] = useState(true);
 
   const token = localStorage.getItem('token');
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Check if on video page (exempt from auto-logout)
+  const isOnVideoPage = location.pathname.includes('/learning/') || 
+                        location.pathname.includes('/video');
+
+  // Handle user activity (mouse, keyboard, scroll)
+  useEffect(() => {
+    const updateActivity = () => {
+      setLastActivityTime(Date.now());
+      if (!isActive) {
+        setIsActive(true);
+      }
+    };
+
+    // Activity event listeners
+    window.addEventListener('mousemove', updateActivity);
+    window.addEventListener('keydown', updateActivity);
+    window.addEventListener('scroll', updateActivity);
+    window.addEventListener('click', updateActivity);
+    window.addEventListener('touchstart', updateActivity);
+
+    return () => {
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('keydown', updateActivity);
+      window.removeEventListener('scroll', updateActivity);
+      window.removeEventListener('click', updateActivity);
+      window.removeEventListener('touchstart', updateActivity);
+    };
+  }, [isActive]);
+
+  // Check for inactivity and auto-logout
+  useEffect(() => {
+    if (!token || isOnVideoPage) return; // Don't auto-logout on video page
+
+    const inactivityCheckInterval = setInterval(() => {
+      const timeSinceActivity = Date.now() - lastActivityTime;
+      
+      if (timeSinceActivity >= INACTIVITY_TIMEOUT_MS) {
+        // User inactive for 10 minutes - pause timer and logout
+        console.log('User inactive for 10 minutes - logging out');
+        setIsActive(false);
+        
+        // Save final time before logout
+        if (sessionTime > 0) {
+          fetch(`${API_BASE_URL}/api/student/update-time`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ seconds: sessionTime })
+          }).catch(err => console.error('Final time update error:', err));
+        }
+        
+        // Clear token and redirect to login
+        localStorage.removeItem('token');
+        localStorage.removeItem('userRole');
+        navigate('/login', { state: { message: 'Logged out due to inactivity' } });
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(inactivityCheckInterval);
+  }, [token, lastActivityTime, sessionTime, navigate, isOnVideoPage]);
+
+  // Check for midnight reset
+  useEffect(() => {
+    if (!token) return;
+
+    const checkMidnightReset = () => {
+      const now = new Date();
+      const lastDate = localStorage.getItem('lastStudyDate');
+      const today = now.toDateString();
+
+      if (lastDate && lastDate !== today) {
+        // New day detected - reset daily time
+        console.log('Midnight passed - resetting daily time');
+        setTotalDailyTime(0);
+        setSessionTime(0);
+        localStorage.setItem('lastStudyDate', today);
+        
+        // Reload today's time from database
+        fetch(`${API_BASE_URL}/api/student/daily-time`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(data => setTotalDailyTime(data.total_seconds || 0))
+        .catch(err => console.error('Daily time reload error:', err));
+      } else if (!lastDate) {
+        localStorage.setItem('lastStudyDate', today);
+      }
+    };
+
+    // Check immediately
+    checkMidnightReset();
+
+    // Check every minute
+    const midnightInterval = setInterval(checkMidnightReset, 60000);
+
+    return () => clearInterval(midnightInterval);
+  }, [token]);
 
   // Initialize session and load daily time on mount
   useEffect(() => {
@@ -45,9 +151,9 @@ function TimeTracker() {
     initSession();
   }, [token]);
 
-  // Session timer with database sync
+  // Session timer with database sync (only runs when user is active)
   useEffect(() => {
-    if (isOnBreak || !token) return;
+    if (isOnBreak || !token || !isActive) return;
     
     const interval = setInterval(async () => {
       setSessionTime(prev => {
@@ -83,7 +189,7 @@ function TimeTracker() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isOnBreak, token]);
+  }, [isOnBreak, token, isActive]);
 
   // Break timer
   useEffect(() => {
@@ -165,8 +271,9 @@ function TimeTracker() {
     return (
       <button 
         onClick={() => setIsMinimized(false)}
-        className="fixed bottom-4 right-4 z-40 bg-slate-900 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-emerald-600 transition-colors"
+        className={`fixed bottom-4 right-4 z-40 ${!isActive ? 'bg-slate-400' : 'bg-slate-900'} text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-emerald-600 transition-colors`}
       >
+        {!isActive && '⏸ '}
         {formatTimeCompact(totalDailyTime)}
       </button>
     );
@@ -175,9 +282,11 @@ function TimeTracker() {
   return (
     <>
       {/* Time Tracker Widget */}
-      <div className="fixed bottom-4 right-4 z-40 bg-white rounded-2xl shadow-xl border border-slate-100 p-4 w-56">
+      <div className={`fixed bottom-4 right-4 z-40 bg-white rounded-2xl shadow-xl border ${!isActive ? 'border-amber-300' : 'border-slate-100'} p-4 w-56`}>
         <div className="flex justify-between items-center mb-3">
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Study Time</span>
+          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+            {!isActive ? '⏸ Paused' : 'Study Time'}
+          </span>
           <button 
             onClick={() => setIsMinimized(true)}
             className="text-slate-300 hover:text-slate-600 text-xs"
@@ -185,6 +294,13 @@ function TimeTracker() {
             -
           </button>
         </div>
+        
+        {!isActive && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-3">
+            <p className="text-[8px] text-amber-700 font-bold uppercase">Inactive</p>
+            <p className="text-[9px] text-amber-600 mt-1">Move mouse to resume tracking</p>
+          </div>
+        )}
         
         {isOnBreak ? (
           <div className="text-center">

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import API_BASE_URL from '../config/api';
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [role, setRole] = useState('student'); 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -11,6 +12,7 @@ function Login() {
   const [showOtp, setShowOtp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [inactivityMessage, setInactivityMessage] = useState('');
   
   // Password Reset State
   const [showResetModal, setShowResetModal] = useState(false);
@@ -19,6 +21,14 @@ function Login() {
   const [newPassword, setNewPassword] = useState('');
   const [resetStep, setResetStep] = useState(1); // 1: email, 2: otp+password
   const [resetMessage, setResetMessage] = useState('');
+
+  // Check for inactivity logout message
+  useEffect(() => {
+    if (location.state?.message) {
+      setInactivityMessage(location.state.message);
+      setTimeout(() => setInactivityMessage(''), 5000);
+    }
+  }, [location]);
 
   // STEP 1: Handle Initial Login (Email/Password check + Trigger OTP)
   const handleLogin = async (e) => {
@@ -194,6 +204,11 @@ function Login() {
           <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-800">
             {role}<span className="text-emerald-500"> </span><span className="text-emerald-600 not-italic lowercase font-medium">portal</span>
           </h2>
+          {inactivityMessage && (
+            <div className="mt-6 p-3 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-xl uppercase border border-amber-200">
+              ⏱ {inactivityMessage}
+            </div>
+          )}
           {error && (
             <div className="mt-6 p-3 bg-red-50 text-red-500 text-[10px] font-bold rounded-xl uppercase border border-red-100 animate-shake">
               {error}
