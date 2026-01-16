@@ -108,7 +108,7 @@ const sendEmailAsync = async (mailOptions) => {
   
   if (!resend) {
     console.log('[EMAIL MOCK] No Resend API key - email not sent');
-    console.log('[EMAIL MOCK] HTML preview:', mailOptions.html?.substring(0, 100) + '...');
+    console.log('[EMAIL MOCK] OTP would be:', extractOTPFromHTML(mailOptions.html));
     return;
   }
   
@@ -122,6 +122,12 @@ const sendEmailAsync = async (mailOptions) => {
     
     if (error) {
       console.error('✗ Resend API error:', JSON.stringify(error));
+      
+      // If it's a domain verification error, log the OTP for testing
+      if (error.message && error.message.includes('verify a domain')) {
+        console.log('📧 EMAIL BLOCKED - OTP for testing:', extractOTPFromHTML(mailOptions.html));
+        console.log('💡 To fix: Verify a domain at https://resend.com/domains');
+      }
       return;
     }
     
@@ -129,6 +135,12 @@ const sendEmailAsync = async (mailOptions) => {
   } catch (err) {
     console.error('✗ Email send failed:', err.message);
   }
+};
+
+// Helper to extract OTP from email HTML for debugging
+const extractOTPFromHTML = (html) => {
+  const match = html.match(/(\d{6})/);
+  return match ? match[1] : 'not found';
 };
 
 // 1. Admin Login (Env based)
