@@ -1,4 +1,5 @@
-require('dotenv').config();
+// Load .env from parent directory (local dev) or use Render environment variables (production)
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
@@ -148,9 +149,13 @@ app.post('/api/login', async (req, res) => {
                     return res.status(500).json({ error: "Failed to generate OTP" });
                 }
 
-                // Send OTP via email or log to console if SMTP not configured
+                // SEND RESPONSE FIRST - don't wait for email
+                console.log(`✓ Sending mfaRequired response to frontend`);
+                res.json({ success: true, mfaRequired: true, email: user.email });
+
+                // Send OTP via email in background (fire-and-forget)
                 if (transporter) {
-                    console.log(`Attempting to send email to ${email}...`);
+                    console.log(`Sending email to ${email} in background...`);
                     const mailOptions = {
                         from: process.env.SMTP_USER || process.env.ADMIN_EMAIL,
                         to: email,
@@ -165,22 +170,18 @@ app.post('/api/login', async (req, res) => {
                         `
                     };
 
-                    try {
-                        await transporter.sendMail(mailOptions);
-                        console.log(`✓ OTP email sent successfully to ${email}`);
-                    } catch (emailErr) {
-                        console.error(`✗ Email send failed:`, emailErr.message);
-                        console.error(`Full error:`, JSON.stringify(emailErr, null, 2));
-                        console.log(`⚠️ OTP for ${email}: ${otp} (email failed, use this code)`);
-                    }
+                    // Don't await - let it run in background
+                    transporter.sendMail(mailOptions)
+                        .then(() => console.log(`✓ OTP email sent to ${email}`))
+                        .catch(err => {
+                            console.error(`✗ Email failed:`, err.message);
+                            console.log(`⚠️ OTP for ${email}: ${otp} (email failed, check console)`);
+                        });
                 } else {
-                    // No SMTP configured - log OTP to console for testing
                     console.log(`⚠️ OTP for ${email}: ${otp} (SMTP not configured)`);
                 }
                 
-                // Always return response after all processing
-                console.log(`✓ Sending mfaRequired response to frontend`);
-                return res.json({ success: true, mfaRequired: true, email: user.email });
+                return; // Response already sent
             } else {
                 console.log(`✗ Incorrect password`);
                 return res.status(401).json({ success: false, message: "Incorrect Password" });
