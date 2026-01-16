@@ -272,12 +272,19 @@ const fetchTeacherProfile = useCallback(async () => {
   
   // Add question to list
   const handleAddQuestion = () => {
-    if (!currentQuestion.question || !currentQuestion.a || !currentQuestion.b || !currentQuestion.c || !currentQuestion.d) {
-      alert("Please fill all question fields");
+    if (!currentQuestion.question.trim() || !currentQuestion.a.trim() || !currentQuestion.b.trim() || !currentQuestion.c.trim() || !currentQuestion.d.trim()) {
+      alert("Please fill all question fields (question and all 4 options)");
       return;
     }
+    
+    if (questions.length >= 20) {
+      alert("Maximum 20 questions allowed per test");
+      return;
+    }
+    
     setQuestions([...questions, { ...currentQuestion }]);
     setCurrentQuestion({ question: '', a: '', b: '', c: '', d: '', correct: 'A' });
+    alert(`Question ${questions.length + 1} added successfully!`);
   };
   
   // Handle CSV Upload
@@ -333,8 +340,28 @@ const fetchTeacherProfile = useCallback(async () => {
   
   // Create test
   const handleCreateTest = async () => {
-    if (!testForm.title || !testForm.start_date || !testForm.deadline || questions.length < 15) {
-      alert("Please fill all fields and add at least 15 questions");
+    if (!testForm.title.trim()) {
+      alert("Please enter a test title");
+      return;
+    }
+    
+    if (!testForm.start_date || !testForm.deadline) {
+      alert("Please select both start date and deadline");
+      return;
+    }
+    
+    if (new Date(testForm.start_date) >= new Date(testForm.deadline)) {
+      alert("Deadline must be after start date");
+      return;
+    }
+    
+    if (questions.length < 5) {
+      alert("Please add at least 5 questions to create a test");
+      return;
+    }
+    
+    if (!selectedSection) {
+      alert("Please select a section for this test");
       return;
     }
     
@@ -345,7 +372,7 @@ const fetchTeacherProfile = useCallback(async () => {
         body: JSON.stringify({
           section: selectedSection,
           title: testForm.title,
-          description: testForm.description,
+          description: testForm.description || '',
           questions: questions,
           start_date: testForm.start_date,
           deadline: testForm.deadline
@@ -353,10 +380,11 @@ const fetchTeacherProfile = useCallback(async () => {
       });
       
       if (res.ok) {
-        alert("Test created successfully!");
+        alert(`Test "${testForm.title}" created successfully with ${questions.length} questions!`);
         setShowCreateTest(false);
         setTestForm({ title: '', description: '', start_date: '', deadline: '' });
         setQuestions([]);
+        setCurrentQuestion({ question: '', a: '', b: '', c: '', d: '', correct: 'A' });
         fetchTests();
       }
     } catch (err) {
@@ -706,12 +734,12 @@ const fetchTeacherProfile = useCallback(async () => {
                 {/* CSV Upload Section */}
                 <div className="border-t pt-8 mb-8">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-black">Add Questions ({questions.length}/20)</h3>
+                    <h3 className="font-black">Add Questions ({questions.length} added)</h3>
                     <button
                       onClick={() => document.getElementById('csv-upload').click()}
                       className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold text-xs hover:bg-blue-700 flex items-center gap-2"
                     >
-                      📄 Upload CSV
+                      Upload CSV
                     </button>
                     <input
                       id="csv-upload"
@@ -733,49 +761,104 @@ const fetchTeacherProfile = useCallback(async () => {
                     </p>
                   </div>
                   
-                  <div className="space-y-4">
-                    <input type="text" placeholder="Question" className="w-full p-4 bg-slate-50 rounded-xl" value={currentQuestion.question} onChange={e => setCurrentQuestion({...currentQuestion, question: e.target.value})} />
+                  <div className="bg-slate-50 p-6 rounded-2xl space-y-4 mb-4">
+                    <h4 className="text-sm font-bold text-slate-600 mb-2">Add Question Manually</h4>
+                    <input 
+                      type="text" 
+                      placeholder="Question text" 
+                      className="w-full p-4 bg-white border border-slate-200 rounded-xl" 
+                      value={currentQuestion.question} 
+                      onChange={e => setCurrentQuestion({...currentQuestion, question: e.target.value})} 
+                    />
                     <div className="grid grid-cols-2 gap-4">
-                      <input type="text" placeholder="Option A" className="p-4 bg-slate-50 rounded-xl" value={currentQuestion.a} onChange={e => setCurrentQuestion({...currentQuestion, a: e.target.value})} />
-                      <input type="text" placeholder="Option B" className="p-4 bg-slate-50 rounded-xl" value={currentQuestion.b} onChange={e => setCurrentQuestion({...currentQuestion, b: e.target.value})} />
-                      <input type="text" placeholder="Option C" className="p-4 bg-slate-50 rounded-xl" value={currentQuestion.c} onChange={e => setCurrentQuestion({...currentQuestion, c: e.target.value})} />
-                      <input type="text" placeholder="Option D" className="p-4 bg-slate-50 rounded-xl" value={currentQuestion.d} onChange={e => setCurrentQuestion({...currentQuestion, d: e.target.value})} />
+                      <input 
+                        type="text" 
+                        placeholder="Option A" 
+                        className="p-4 bg-white border border-slate-200 rounded-xl" 
+                        value={currentQuestion.a} 
+                        onChange={e => setCurrentQuestion({...currentQuestion, a: e.target.value})} 
+                      />
+                      <input 
+                        type="text" 
+                        placeholder="Option B" 
+                        className="p-4 bg-white border border-slate-200 rounded-xl" 
+                        value={currentQuestion.b} 
+                        onChange={e => setCurrentQuestion({...currentQuestion, b: e.target.value})} 
+                      />
+                      <input 
+                        type="text" 
+                        placeholder="Option C" 
+                        className="p-4 bg-white border border-slate-200 rounded-xl" 
+                        value={currentQuestion.c} 
+                        onChange={e => setCurrentQuestion({...currentQuestion, c: e.target.value})} 
+                      />
+                      <input 
+                        type="text" 
+                        placeholder="Option D" 
+                        className="p-4 bg-white border border-slate-200 rounded-xl" 
+                        value={currentQuestion.d} 
+                        onChange={e => setCurrentQuestion({...currentQuestion, d: e.target.value})} 
+                      />
                     </div>
-                    <select className="w-full p-4 bg-slate-50 rounded-xl font-bold" value={currentQuestion.correct} onChange={e => setCurrentQuestion({...currentQuestion, correct: e.target.value})}>
+                    <select 
+                      className="w-full p-4 bg-white border border-slate-200 rounded-xl font-bold" 
+                      value={currentQuestion.correct} 
+                      onChange={e => setCurrentQuestion({...currentQuestion, correct: e.target.value})}
+                    >
                       <option value="A">Correct Answer: A</option>
                       <option value="B">Correct Answer: B</option>
                       <option value="C">Correct Answer: C</option>
                       <option value="D">Correct Answer: D</option>
                     </select>
-                    <button onClick={handleAddQuestion} className="w-full bg-emerald-100 text-emerald-700 p-4 rounded-xl font-black uppercase text-xs">Add Question Manually</button>
+                    <button 
+                      onClick={handleAddQuestion} 
+                      className="w-full bg-emerald-600 text-white p-4 rounded-xl font-black uppercase text-xs hover:bg-emerald-700 transition-colors"
+                      disabled={questions.length >= 20}
+                    >
+                      {questions.length >= 20 ? 'Maximum Questions Reached' : 'Add This Question'}
+                    </button>
                   </div>
                   
                   {questions.length > 0 && (
                     <div className="mt-6 space-y-2">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-bold text-slate-600">Questions Added:</span>
+                      <div className="flex justify-between items-center mb-3 p-3 bg-emerald-50 rounded-xl">
+                        <span className="text-sm font-bold text-emerald-700">
+                          {questions.length} question{questions.length !== 1 ? 's' : ''} added - {questions.length >= 5 ? 'Ready to create test' : `Add ${5 - questions.length} more (minimum 5 required)`}
+                        </span>
                         <button
-                          onClick={() => setQuestions([])}
-                          className="text-xs font-bold text-red-600 hover:text-red-700"
+                          onClick={() => {
+                            if (confirm('Are you sure you want to clear all questions?')) {
+                              setQuestions([]);
+                            }
+                          }}
+                          className="text-xs font-bold text-red-600 hover:text-red-700 px-3 py-1 rounded-lg hover:bg-red-50"
                         >
                           Clear All
                         </button>
                       </div>
                       {questions.map((q, i) => (
-                        <div key={i} className="p-4 bg-slate-50 rounded-xl flex justify-between items-center">
+                        <div key={i} className="p-4 bg-white border border-slate-200 rounded-xl flex justify-between items-start hover:border-emerald-300 transition-colors">
                           <div className="flex-1">
-                            <span className="font-bold text-sm">{i + 1}. {q.question}</span>
-                            <div className="text-xs text-slate-500 mt-1">
-                              A: {q.a} | B: {q.b} | C: {q.c} | D: {q.d}
+                            <span className="font-bold text-sm text-slate-700">{i + 1}. {q.question}</span>
+                            <div className="text-xs text-slate-500 mt-2 grid grid-cols-2 gap-2">
+                              <div>A: {q.a}</div>
+                              <div>B: {q.b}</div>
+                              <div>C: {q.c}</div>
+                              <div>D: {q.d}</div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-xs text-emerald-600 font-black">Ans: {q.correct}</span>
+                          <div className="flex items-center gap-3 ml-4">
+                            <span className="text-xs text-white font-black bg-emerald-600 px-3 py-1 rounded-lg">✓ {q.correct}</span>
                             <button
-                              onClick={() => setQuestions(questions.filter((_, idx) => idx !== i))}
-                              className="text-red-600 hover:text-red-700 font-bold"
+                              onClick={() => {
+                                if (confirm('Remove this question?')) {
+                                  setQuestions(questions.filter((_, idx) => idx !== i));
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-700 font-bold text-lg w-8 h-8 flex items-center justify-center hover:bg-red-50 rounded-lg"
+                              title="Remove question"
                             >
-                              ✕
+                              ×
                             </button>
                           </div>
                         </div>
