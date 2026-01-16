@@ -52,7 +52,7 @@ notificationService.initializeNotificationService(pool);
     await pool.query('CREATE INDEX IF NOT EXISTS idx_module_completion_module ON module_completion(module_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_module_completion_student ON module_completion(student_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_module_completion_completed ON module_completion(is_completed)');
-    console.log('✓ module_completion table ready');
+    console.log('module_completion table ready');
     
     // Create daily_study_time table for time tracking
     await pool.query(`
@@ -68,7 +68,7 @@ notificationService.initializeNotificationService(pool);
       )
     `);
     await pool.query('CREATE INDEX IF NOT EXISTS idx_daily_study_student_date ON daily_study_time(student_id, study_date)');
-    console.log('✓ daily_study_time table ready');
+    console.log('daily_study_time table ready');
   } catch (err) {
     console.error('⚠ Database table setup error:', err.message);
   }
@@ -137,7 +137,7 @@ let mailjet = null;
 if (mjApiKeyPublic && mjApiKeyPrivate) {
   const Mailjet = require('node-mailjet');
   mailjet = Mailjet.apiConnect(mjApiKeyPublic, mjApiKeyPrivate);
-  console.log('✓ Mailjet email service ready');
+  console.log('Mailjet email service ready');
 } else {
   console.warn('⚠ Mailjet API keys not set - emails will be logged to console only');
   console.warn('  Get free API keys at https://www.mailjet.com');
@@ -176,7 +176,7 @@ const sendEmailAsync = async (mailOptions) => {
     
     const status = result.body.Messages[0].Status;
     if (status === 'success') {
-      console.log('✓ Email sent successfully via Mailjet!');
+      console.log('Email sent successfully via Mailjet');
     } else {
       console.error('✗ Mailjet status:', status);
       console.log('📧 EMAIL ISSUE - OTP for testing:', extractOTPFromHTML(mailOptions.html));
@@ -482,7 +482,7 @@ app.post('/api/admin/register-teacher', authenticateToken, adminOnly, async (req
         },
         { teacher_id: teacherId }
       );
-      console.log(`✓ Sent ACCOUNT_CREATED notification to teacher ${name}`);
+      console.log(`Sent ACCOUNT_CREATED notification to teacher ${name}`);
     } catch (notifErr) {
       console.error('Welcome notification error (non-blocking):', notifErr);
     }
@@ -519,10 +519,10 @@ app.post('/api/admin/register-student', authenticateToken, adminOnly, async (req
       return res.status(400).json({ error: "Invalid email format. Please use a complete email address (e.g., user@example.com)" });
     }
     
-    console.log("✓ Validation passed, hashing password...");
+    console.log("Validation passed, hashing password...");
     const hashed = await bcrypt.hash(password, SALT_ROUNDS);
     
-    console.log("✓ Password hashed, inserting into database...");
+    console.log("Password hashed, inserting into database...");
     const query = `INSERT INTO students (name, email, password, reg_no, class_dept, section, media) 
                    VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`;
     const values = [name, email, hashed, reg_no, class_dept, section, media || {}];
@@ -2146,8 +2146,7 @@ app.post('/api/student/test/submit', authenticateToken, async (req, res) => {
           })
         ]);
         
-        console.log(`✓ Sent GRADE_POSTED notification to student ${name}`);
-      }
+        console.log(`Sent GRADE_POSTED notification to student ${name}`);
       }
     } catch (notifErr) {
       console.error('Student grade notification error (non-blocking):', notifErr);
