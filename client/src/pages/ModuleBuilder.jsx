@@ -618,7 +618,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
              <button onClick={() => {setIsBuilding(false); setModuleQueue([]); setEditingModuleId(null);}} className="w-full mt-6 text-red-500 text-[10px] font-black uppercase p-4">Discard</button>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
