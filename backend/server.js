@@ -35,6 +35,29 @@ const pool = new Pool({
 // Initialize notification service
 notificationService.initializeNotificationService(pool);
 
+// Auto-create module_completion table if it doesn't exist
+(async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS module_completion (
+        id SERIAL PRIMARY KEY,
+        module_id INTEGER NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+        student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        step_index INTEGER NOT NULL,
+        is_completed BOOLEAN DEFAULT FALSE,
+        completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(module_id, student_id, step_index)
+      )
+    `);
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_module_completion_module ON module_completion(module_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_module_completion_student ON module_completion(student_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_module_completion_completed ON module_completion(is_completed)');
+    console.log('✓ module_completion table ready');
+  } catch (err) {
+    console.error('⚠ module_completion table setup error:', err.message);
+  }
+})();
+
 // --- CLOUDINARY CONFIGURATION ---
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -706,7 +729,8 @@ app.post('/api/admin/allocate-sections', authenticateToken, adminOnly, async (re
     
     // Map selected section IDs to section strings (class_dept-section)
     const selectedSectionStrings = sections.map(sectionId => {
-      const section = allSections.find(s => s.id === parseInt(sectionId));
+      // Section IDs come as strings from frontend, compare as strings
+      const section = allSections.find(s => String(s.id) === String(sectionId));
       if (section) {
         return `${section.class_dept}-${section.section}`;
       }
@@ -725,7 +749,11 @@ app.post('/api/admin/allocate-sections', authenticateToken, adminOnly, async (re
       [teacher_id]
     );
     
-    let currentSections = teacherResult.rows[0]?.allocated_sections || [];
+    // Handle null or non-array allocated_sections
+    let currentSections = teacherResult.rows[0]?.allocated_sections;
+    if (!Array.isArray(currentSections)) {
+      currentSections = [];
+    }
     
     // Add new sections (avoiding duplicates)
     const updatedSections = [...new Set([...currentSections, ...selectedSectionStrings])];
