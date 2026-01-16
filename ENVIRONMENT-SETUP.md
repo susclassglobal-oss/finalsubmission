@@ -25,9 +25,11 @@ This document lists all the environment variables that need to be configured for
 
 ## Optional Variables
 
-### Frontend URL
-- `FRONTEND_URL` - Override frontend base URL for email links
-- `VITE_API_URL` - API URL for frontend (set during Docker build)
+### URLs (For Single-Service Deployment on Render)
+- `FRONTEND_URL` - Used by backend to generate email links (Render will auto-provide `RENDER_EXTERNAL_URL`)
+- `VITE_API_URL` - API URL for frontend. **Leave empty or unset** to use same origin (recommended)
+
+**For Render deployment**: You only need to set `FRONTEND_URL` to your Render URL (e.g., `https://your-app.onrender.com`). The `VITE_API_URL` can be left empty since frontend and backend run on the same server.
 
 ### Application
 - `NODE_ENV` - Set to `production` for deployment (default in Docker)
@@ -48,7 +50,11 @@ docker build --build-arg VITE_API_URL=https://your-api-url.com .
 3. Select the `main` branch
 4. Set environment to Docker
 5. Configure all required environment variables above
-6. Deploy!
+6. Set `FRONTEND_URL` to your Render service URL (e.g., `https://your-app.onrender.com`)
+7. Leave `VITE_API_URL` **empty** (frontend will use same origin)
+8. Deploy!
+
+**Note**: Render automatically provides `RENDER_EXTERNAL_URL` which the backend will use as fallback for `FRONTEND_URL` if not set.
 
 ## Local Development
 

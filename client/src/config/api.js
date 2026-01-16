@@ -1,8 +1,16 @@
 // API Configuration
 // Uses environment variables in production, falls back to localhost for development
-// Set VITE_API_URL in your deployment environment (e.g., Render)
+// 
+// VITE_API_URL can be:
+// - Empty string '' = Use same origin as frontend (recommended for Render single-service)
+// - Full URL = Use specific backend URL (for separate frontend/backend deployments)
+// - Undefined = Defaults to http://localhost:5000 for local development
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const apiUrlFromEnv = import.meta.env.VITE_API_URL;
+
+export const API_URL = apiUrlFromEnv !== undefined 
+  ? apiUrlFromEnv  // Use whatever is set (even empty string)
+  : 'http://localhost:5000';  // Default for local dev
 
 // Helper function to build API endpoint URLs
 export const apiUrl = (endpoint) => `${API_URL}${endpoint}`;
