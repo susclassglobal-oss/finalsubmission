@@ -38,6 +38,7 @@ DROP FUNCTION IF EXISTS add_column_if_not_exists(TEXT, TEXT, TEXT, TEXT) CASCADE
 DROP FUNCTION IF EXISTS create_index_if_not_exists(TEXT, TEXT, TEXT) CASCADE;
 
 -- Drop tables (in correct order due to foreign keys)
+DROP TABLE IF EXISTS in_app_notifications CASCADE;
 DROP TABLE IF EXISTS test_submissions CASCADE;
 DROP TABLE IF EXISTS mcq_tests CASCADE;
 DROP TABLE IF EXISTS modules CASCADE;
@@ -842,4 +843,41 @@ DO $$
 BEGIN
     RAISE NOTICE '✓ Teacher-student allocation system created';
     RAISE NOTICE '✓ Many-to-many relationship enabled';
+END $$;
+
+-- ============================================================
+-- PART 13: IN-APP NOTIFICATIONS
+-- ============================================================
+DO $$ 
+BEGIN
+    RAISE NOTICE 'Step 13: Creating in-app notifications table...';
+END $$;
+
+-- Table 7: IN_APP_NOTIFICATIONS
+CREATE TABLE IF NOT EXISTS in_app_notifications (
+    id SERIAL PRIMARY KEY,
+    recipient_id INTEGER NOT NULL,
+    recipient_type TEXT NOT NULL, -- 'student', 'teacher', 'admin'
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT NOT NULL, -- 'module', 'test', 'submission', 'deadline', 'grade', 'announcement', 'system'
+    action_url TEXT, -- URL to navigate when clicking notification
+    metadata JSONB DEFAULT '{}'::jsonb, -- Additional data (module_id, test_id, etc.)
+    is_read BOOLEAN DEFAULT false,
+    read_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT chk_recipient_type CHECK (recipient_type IN ('student', 'teacher', 'admin')),
+    CONSTRAINT chk_notification_type CHECK (type IN ('module', 'test', 'submission', 'deadline', 'grade', 'announcement', 'system'))
+);
+
+-- Create indexes for faster notification queries
+CREATE INDEX idx_inapp_recipient ON in_app_notifications(recipient_id, recipient_type);
+CREATE INDEX idx_inapp_unread ON in_app_notifications(recipient_id, recipient_type, is_read);
+CREATE INDEX idx_inapp_created ON in_app_notifications(created_at DESC);
+
+DO $$ 
+BEGIN
+    RAISE NOTICE '✓ In-app notifications table created';
+    RAISE NOTICE '✓ Notification indexes created for performance';
 END $$;
