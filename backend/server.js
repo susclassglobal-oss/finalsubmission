@@ -119,24 +119,38 @@ app.post('/api/login', async (req, res) => {
     const activeRole = role.toLowerCase();
     const table = activeRole === 'student' ? 'students' : 'teachers';
 
+    console.log(`\n=== LOGIN ATTEMPT ===`);
+    console.log(`Email: ${email}, Role: ${activeRole}`);
+
     try {
         const result = await pool.query(`SELECT * FROM ${table} WHERE LOWER(email) = LOWER($1)`, [email]);
+        console.log(`User found: ${result.rows.length > 0}`);
         
         if (result.rows.length > 0) {
             const user = result.rows[0];
             const isMatch = await bcrypt.compare(password, user.password);
+            console.log(`Password match: ${isMatch}`);
             
             if (isMatch) {
                 const otp = Math.floor(100000 + Math.random() * 900000).toString();
                 const otpExpiry = new Date(Date.now() + 5 * 60000); // 5 mins
 
-                await pool.query(
-                    `UPDATE ${table} SET otp_code = $1, otp_expiry = $2 WHERE id = $3`,
-                    [otp, otpExpiry, user.id]
-                );
+                console.log(`Generated OTP: ${otp}, Expiry: ${otpExpiry}`);
+
+                try {
+                    await pool.query(
+                        `UPDATE ${table} SET otp_code = $1, otp_expiry = $2 WHERE id = $3`,
+                        [otp, otpExpiry, user.id]
+                    );
+                    console.log(`✓ OTP saved to database`);
+                } catch (dbErr) {
+                    console.error(`✗ Failed to save OTP to database:`, dbErr.message);
+                    return res.status(500).json({ error: "Failed to generate OTP" });
+                }
 
                 // Send OTP via email or log to console if SMTP not configured
                 if (transporter) {
+                    console.log(`Attempting to send email to ${email}...`);
                     const mailOptions = {
                         from: process.env.SMTP_USER || process.env.ADMIN_EMAIL,
                         to: email,
@@ -153,9 +167,10 @@ app.post('/api/login', async (req, res) => {
 
                     try {
                         await transporter.sendMail(mailOptions);
-                        console.log(`✓ OTP email sent to ${email}`);
+                        console.log(`✓ OTP email sent successfully to ${email}`);
                     } catch (emailErr) {
-                        console.error('Email send failed:', emailErr.message);
+                        console.error(`✗ Email send failed:`, emailErr.message);
+                        console.error(`Full error:`, JSON.stringify(emailErr, null, 2));
                         console.log(`⚠️ OTP for ${email}: ${otp} (email failed, use this code)`);
                     }
                 } else {
@@ -163,17 +178,21 @@ app.post('/api/login', async (req, res) => {
                     console.log(`⚠️ OTP for ${email}: ${otp} (SMTP not configured)`);
                 }
                 
-                // Return same response to keep your frontend working
-                res.json({ success: true, mfaRequired: true, email: user.email });
+                // Always return response after all processing
+                console.log(`✓ Sending mfaRequired response to frontend`);
+                return res.json({ success: true, mfaRequired: true, email: user.email });
             } else {
-                res.status(401).json({ success: false, message: "Incorrect Password" });
+                console.log(`✗ Incorrect password`);
+                return res.status(401).json({ success: false, message: "Incorrect Password" });
             }
         } else {
-            res.status(404).json({ success: false, message: "Account not found" });
+            console.log(`✗ Account not found`);
+            return res.status(404).json({ success: false, message: "Account not found" });
         }
     } catch (err) {
-        console.error("Mail/Login Error:", err);
-        res.status(500).json({ error: "Database or Mailer error" });
+        console.error("Login Error:", err.message);
+        console.error("Full error:", err);
+        return res.status(500).json({ error: "Database or Mailer error: " + err.message });
     }
 });
 // 3. Verify OTP - Step 2: The Final Authentication

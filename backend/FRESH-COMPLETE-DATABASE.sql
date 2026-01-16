@@ -68,6 +68,8 @@ CREATE TABLE teachers (
     dept TEXT,
     media JSONB DEFAULT '{}'::jsonb,
     allocated_sections JSONB DEFAULT '[]'::jsonb,
+    otp_code TEXT,
+    otp_expiry TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     CONSTRAINT chk_email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
@@ -84,6 +86,8 @@ CREATE TABLE students (
     class_dept TEXT,
     section TEXT,
     media JSONB DEFAULT '{}'::jsonb,
+    otp_code TEXT,
+    otp_expiry TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     CONSTRAINT chk_email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
