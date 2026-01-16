@@ -92,7 +92,10 @@ function ModuleLearning() {
   }, [currentStepIndex, steps, language]);
 
   const currentStep = steps[currentStepIndex];
-  const progressPercent = steps.length > 0 ? (currentStepIndex / steps.length) * 100 : 0; // Show progress as percentage of steps completed, not current step
+  
+  // Calculate progress based on completed steps from backend data
+  const completedCount = steps.filter(step => step.is_completed).length;
+  const progressPercent = steps.length > 0 ? (completedCount / steps.length) * 100 : 0;
 
   const handleMcqSubmit = () => {
     const correct = currentStep.mcq_data?.correct?.toUpperCase() === selectedAnswer.toUpperCase();
@@ -126,19 +129,29 @@ function ModuleLearning() {
   const handleNext = async () => {
     // Mark current step as complete
     try {
-      await fetch(`${API_BASE_URL}/api/student/module/${moduleId}/complete`, {
+      const response = await fetch(`${API_BASE_URL}/api/student/module/${moduleId}/complete`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ stepIndex: currentStepIndex })
       });
+      
+      const result = await response.json();
+      
+      if (result.allComplete) {
+        alert('🎉 Module completed! Great work!');
+        navigate('/dashboard');
+        return;
+      }
     } catch (err) {
       console.error("Completion error:", err);
     }
 
     if (currentStepIndex < steps.length - 1) {
       setCurrentStepIndex(currentStepIndex + 1);
+      // Refresh module data to update progress
+      fetchModule();
     } else {
-      alert('Module completed! Great work!');
+      alert('🎉 Module completed! Great work!');
       navigate('/dashboard');
     }
   };
@@ -210,7 +223,7 @@ function ModuleLearning() {
               className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${
                 idx === currentStepIndex
                   ? 'bg-blue-600 text-white' // Current step - blue
-                  : idx < currentStepIndex
+                  : step.is_completed
                   ? 'bg-emerald-100 text-emerald-700' // Completed - green
                   : 'bg-slate-200 text-slate-500' // Not started - gray
               }`}

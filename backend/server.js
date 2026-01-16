@@ -53,8 +53,24 @@ notificationService.initializeNotificationService(pool);
     await pool.query('CREATE INDEX IF NOT EXISTS idx_module_completion_student ON module_completion(student_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_module_completion_completed ON module_completion(is_completed)');
     console.log('✓ module_completion table ready');
+    
+    // Create daily_study_time table for time tracking
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS daily_study_time (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        study_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        total_seconds INTEGER NOT NULL DEFAULT 0,
+        session_start TIMESTAMP,
+        last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(student_id, study_date)
+      )
+    `);
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_daily_study_student_date ON daily_study_time(student_id, study_date)');
+    console.log('✓ daily_study_time table ready');
   } catch (err) {
-    console.error('⚠ module_completion table setup error:', err.message);
+    console.error('⚠ Database table setup error:', err.message);
   }
 })();
 
@@ -1260,6 +1276,14 @@ app.get('/api/student/module/:moduleId', authenticateToken, async (req, res) => 
     
     if (result.rows.length === 0) return res.status(404).json({ error: "Module not found" });
     
+    // Get completion status for all steps
+    const completionResult = await pool.query(
+      'SELECT step_index FROM module_completion WHERE module_id = $1 AND student_id = $2 AND is_completed = TRUE',
+      [moduleId, studentId]
+    );
+    
+    const completedSteps = completionResult.rows.map(row => row.step_index);
+    
     // Log module access for teacher analytics
     await pool.query('SELECT track_module_access($1, $2)', [studentId, moduleId]);
     
@@ -1277,7 +1301,8 @@ app.get('/api/student/module/:moduleId', authenticateToken, async (req, res) => 
       mcq_data: step.type === 'mcq' ? step.data :
                 step.type === 'coding' ? step.data :
                 step.type === 'jitsi' ? step.data :
-                null // For structured data (MCQ, coding problems, jitsi)
+                null, // For structured data (MCQ, coding problems, jitsi)
+      is_completed: completedSteps.includes(index)
     }));
     
     console.log("Formatted steps for student:", formattedSteps);
@@ -1288,22 +1313,111 @@ app.get('/api/student/module/:moduleId', authenticateToken, async (req, res) => 
   }
 });
 
-// 13b. Student: Mark Module as Complete
+// 13b. Student: Mark Step/Module as Complete
 app.post('/api/student/module/:moduleId/complete', authenticateToken, async (req, res) => {
   try {
     const moduleId = req.params.moduleId;
     const studentId = req.user.id;
+    const { stepIndex } = req.body;
     
-    await pool.query('SELECT mark_module_complete($1, $2)', [studentId, moduleId]);
-    
-    res.json({ success: true, message: "Module marked as complete" });
+    if (stepIndex !== undefined) {
+      // Mark specific step as complete
+      await pool.query(`
+        INSERT INTO module_completion (module_id, student_id, step_index, is_completed)
+        VALUES ($1, $2, $3, TRUE)
+        ON CONFLICT (module_id, student_id, step_index)
+        DO UPDATE SET is_completed = TRUE, completed_at = CURRENT_TIMESTAMP
+      `, [moduleId, studentId, stepIndex]);
+      
+      // Check if all steps are now complete
+      const moduleQuery = await pool.query('SELECT step_count FROM modules WHERE id = $1', [moduleId]);
+      const totalSteps = moduleQuery.rows[0]?.step_count || 0;
+      
+      const completedQuery = await pool.query(
+        'SELECT COUNT(*) as completed FROM module_completion WHERE module_id = $1 AND student_id = $2 AND is_completed = TRUE',
+        [moduleId, studentId]
+      );
+      const completedSteps = parseInt(completedQuery.rows[0]?.completed || 0);
+      
+      if (completedSteps >= totalSteps) {
+        // All steps complete - mark entire module as complete
+        await pool.query('SELECT mark_module_complete($1, $2)', [studentId, moduleId]);
+        res.json({ success: true, message: "Module completed!", allComplete: true });
+      } else {
+        res.json({ success: true, message: "Step marked as complete", progress: completedSteps / totalSteps });
+      }
+    } else {
+      // Mark entire module as complete
+      await pool.query('SELECT mark_module_complete($1, $2)', [studentId, moduleId]);
+      res.json({ success: true, message: "Module marked as complete" });
+    }
   } catch (err) {
     console.error("Mark Complete Error:", err);
     res.status(500).json({ error: "Failed to mark module complete" });
   }
 });
 
-// 13c. Student: Get My Module Progress
+// 13c. Student: Time Tracking Endpoints
+app.post('/api/student/start-session', authenticateToken, async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const today = new Date().toISOString().split('T')[0];
+    
+    await pool.query(`
+      INSERT INTO daily_study_time (student_id, study_date, session_start, last_activity)
+      VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT (student_id, study_date)
+      DO UPDATE SET session_start = CURRENT_TIMESTAMP, last_activity = CURRENT_TIMESTAMP
+    `, [studentId, today]);
+    
+    res.json({ success: true, message: 'Session started' });
+  } catch (err) {
+    console.error('Start session error:', err);
+    res.status(500).json({ error: 'Failed to start session' });
+  }
+});
+
+app.post('/api/student/update-time', authenticateToken, async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const { seconds } = req.body;
+    const today = new Date().toISOString().split('T')[0];
+    
+    await pool.query(`
+      INSERT INTO daily_study_time (student_id, study_date, total_seconds, last_activity)
+      VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+      ON CONFLICT (student_id, study_date)
+      DO UPDATE SET 
+        total_seconds = daily_study_time.total_seconds + $3,
+        last_activity = CURRENT_TIMESTAMP
+    `, [studentId, today, seconds]);
+    
+    res.json({ success: true, message: 'Time updated' });
+  } catch (err) {
+    console.error('Update time error:', err);
+    res.status(500).json({ error: 'Failed to update time' });
+  }
+});
+
+app.get('/api/student/daily-time', authenticateToken, async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const today = new Date().toISOString().split('T')[0];
+    
+    const result = await pool.query(
+      'SELECT total_seconds, session_start FROM daily_study_time WHERE student_id = $1 AND study_date = $2',
+      [studentId, today]
+    );
+    
+    const data = result.rows[0] || { total_seconds: 0, session_start: null };
+    res.json(data);
+  } catch (err) {
+    console.error('Get daily time error:', err);
+    res.status(500).json({ error: 'Failed to get daily time' });
+  }
+});
+
+// 13d. Student: Get My Module Progress
 app.get('/api/student/module-progress', authenticateToken, async (req, res) => {
   try {
     const studentId = req.user.id;

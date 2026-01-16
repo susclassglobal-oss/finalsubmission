@@ -1,30 +1,55 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import API_BASE_URL from '../config/api';
 
 // Eye strain prevention: recommend break after 25 minutes (Pomodoro technique)
 const BREAK_INTERVAL_MINUTES = 25;
 const BREAK_DURATION_MINUTES = 5;
 
 function TimeTracker() {
-  const [sessionTime, setSessionTime] = useState(0); // seconds
-  const [totalTime, setTotalTime] = useState(0); // seconds from localStorage
+  const [sessionTime, setSessionTime] = useState(0); // seconds since session start
+  const [totalDailyTime, setTotalDailyTime] = useState(0); // seconds from database for today
   const [showBreakReminder, setShowBreakReminder] = useState(false);
   const [isOnBreak, setIsOnBreak] = useState(false);
   const [breakTimeLeft, setBreakTimeLeft] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState(0);
 
-  // Load total time from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('study_total_time');
-    if (saved) {
-      setTotalTime(parseInt(saved, 10));
-    }
-  }, []);
+  const token = localStorage.getItem('token');
 
-  // Session timer
+  // Initialize session and load daily time on mount
   useEffect(() => {
-    if (isOnBreak) return;
+    if (!token) return;
     
-    const interval = setInterval(() => {
+    const initSession = async () => {
+      try {
+        // Start new session
+        await fetch(`${API_BASE_URL}/api/student/start-session`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        // Load today's total time
+        const timeRes = await fetch(`${API_BASE_URL}/api/student/daily-time`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (timeRes.ok) {
+          const timeData = await timeRes.json();
+          setTotalDailyTime(timeData.total_seconds || 0);
+        }
+      } catch (err) {
+        console.error('Session init error:', err);
+      }
+    };
+    
+    initSession();
+  }, [token]);
+
+  // Session timer with database sync
+  useEffect(() => {
+    if (isOnBreak || !token) return;
+    
+    const interval = setInterval(async () => {
       setSessionTime(prev => {
         const newTime = prev + 1;
         
@@ -36,16 +61,29 @@ function TimeTracker() {
         return newTime;
       });
       
-      // Update total time
-      setTotalTime(prev => {
-        const newTotal = prev + 1;
-        localStorage.setItem('study_total_time', newTotal.toString());
-        return newTotal;
-      });
+      setTotalDailyTime(prev => prev + 1);
+      
+      // Update database every 30 seconds
+      const now = Date.now();
+      if (now - lastUpdateTime >= 30000) {
+        try {
+          await fetch(`${API_BASE_URL}/api/student/update-time`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ seconds: 30 })
+          });
+          setLastUpdateTime(now);
+        } catch (err) {
+          console.error('Time update error:', err);
+        }
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isOnBreak]);
+  }, [isOnBreak, token, lastUpdateTime]);
 
   // Break timer
   useEffect(() => {
@@ -70,10 +108,43 @@ function TimeTracker() {
     const secs = seconds % 60;
     
     if (hrs > 0) {
-      return `${hrs}h ${mins}m`;
+      return `${hrs}h ${mins}m ${secs}s`;
     }
     return `${mins}m ${secs.toString().padStart(2, '0')}s`;
   }, []);
+
+  const formatTimeCompact = useCallback((seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  }, []);
+  
+  // Save session data before window close
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      if (sessionTime > 0 && token) {
+        try {
+          await fetch(`${API_BASE_URL}/api/student/update-time`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ seconds: sessionTime })
+          });
+        } catch (err) {
+          console.error('Final time update error:', err);
+        }
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [sessionTime, token]);
 
   const startBreak = () => {
     setShowBreakReminder(false);
@@ -96,7 +167,7 @@ function TimeTracker() {
         onClick={() => setIsMinimized(false)}
         className="fixed bottom-4 right-4 z-40 bg-slate-900 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-emerald-600 transition-colors"
       >
-        {formatTime(sessionTime)}
+        {formatTimeCompact(totalDailyTime)}
       </button>
     );
   }
@@ -130,14 +201,14 @@ function TimeTracker() {
         ) : (
           <>
             <div className="text-center mb-3">
-              <p className="text-2xl font-black text-slate-900">{formatTime(sessionTime)}</p>
-              <p className="text-[10px] text-slate-400 uppercase font-bold">This Session</p>
+              <p className="text-2xl font-black text-emerald-600">{formatTimeCompact(totalDailyTime)}</p>
+              <p className="text-[10px] text-slate-400 uppercase font-bold">Daily Study Time</p>
             </div>
             
             <div className="border-t border-slate-100 pt-3">
               <div className="flex justify-between items-center">
-                <span className="text-[9px] text-slate-400 uppercase font-bold">Total</span>
-                <span className="text-sm font-bold text-slate-600">{formatTime(totalTime)}</span>
+                <span className="text-[9px] text-slate-400 uppercase font-bold">Session</span>
+                <span className="text-sm font-bold text-slate-600">{formatTime(sessionTime)}</span>
               </div>
             </div>
             
