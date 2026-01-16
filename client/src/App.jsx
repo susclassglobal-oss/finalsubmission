@@ -10,6 +10,7 @@ import VideoLearning from './pages/VideoLearning'
 import AdminDashboard from './pages/AdminDashboard'
 import TeacherDashboard from './pages/TeacherDashboard'
 import CoursePlayer from './pages/CoursePlayer'
+import ModuleLearning from './pages/ModuleLearning'
 
 // --- THE BOUNCER (Protected Route Logic) ---
 const ProtectedRoute = ({ children, allowedRole }) => {
@@ -73,6 +74,16 @@ function App() {
       {/* CRITICAL FIX: The Course Player must be protected so only logged-in students see it */}
       <Route 
         path="/learning/:moduleId" 
+        element={
+          <ProtectedRoute allowedRole="student">
+            <ModuleLearning />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Legacy coding challenge route */}
+      <Route 
+        path="/challenge/:moduleId" 
         element={
           <ProtectedRoute allowedRole="student">
             <CoursePlayer />

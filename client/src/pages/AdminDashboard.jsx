@@ -9,8 +9,9 @@ function AdminDashboard() {
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedTeacher, setSelectedTeacher] = useState(null);
-  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [selectedSections, setSelectedSections] = useState([]); // Changed from selectedStudents
   const [allocationSubject, setAllocationSubject] = useState("");
+  const [availableSections, setAvailableSections] = useState([]); // List of unique class/sections
 
   // States for Registration
   const [studentData, setStudentData] = useState({ 
@@ -34,7 +35,7 @@ function AdminDashboard() {
   useEffect(() => {
     if (activeTab === 'allocation') {
       fetchTeachers();
-      fetchStudents();
+      fetchSections();
     } else if (activeTab === 'manage-teachers') {
       fetchTeachers();
     } else if (activeTab === 'manage-students') {
@@ -62,18 +63,36 @@ function AdminDashboard() {
     }
   };
 
+  const fetchSections = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/sections`, { headers: authHeaders });
+      const data = await res.json();
+      setAvailableSections(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error fetching sections:", err);
+    }
+  };
+
+  const toggleSectionSelection = (section) => {
+    setSelectedSections(prev => 
+      prev.includes(section) 
+        ? prev.filter(s => s !== section)
+        : [...prev, section]
+    );
+  };
+
   const handleSaveAllocation = async () => {
-    if (!selectedTeacher || selectedStudents.length === 0 || !allocationSubject) {
-      return alert("Please select teacher, students, and enter subject");
+    if (!selectedTeacher || selectedSections.length === 0 || !allocationSubject) {
+      return alert("Please select teacher, at least one class/section, and enter subject");
     }
     
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/allocate`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/allocate-sections`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ 
           teacher_id: selectedTeacher.id, 
-          student_ids: selectedStudents,
+          sections: selectedSections,
           subject: allocationSubject
         })
       });
@@ -81,9 +100,10 @@ function AdminDashboard() {
       const data = await res.json();
       
       if (res.ok) {
-        alert("Allocation Saved!");
-        setSelectedStudents([]);
+        alert(`Allocation Saved! ${data.message || ''}`);
+        setSelectedSections([]);
         setAllocationSubject("");
+        fetchTeachers(); // Refresh to show updated allocations
       } else {
         alert(`Failed to save allocation: ${data.error || 'Unknown error'}`);
         console.error("Allocation error:", data);
@@ -349,7 +369,9 @@ function AdminDashboard() {
           </div>
         ) : activeTab === 'allocation' ? (
           <div className="max-w-7xl">
-            <h1 className="text-3xl font-black text-slate-800 uppercase mb-8 italic">Teacher-Student <span className="text-emerald-600">Allocation</span></h1>
+            <h1 className="text-3xl font-black text-slate-800 uppercase mb-8 italic">Teacher-Section <span className="text-emerald-600">Allocation</span></h1>
+            <p className="text-slate-500 mb-6">Assign teachers to class sections. All students in the selected sections will have access to the teacher's content.</p>
+            
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Select Teacher */}
               <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
@@ -360,22 +382,31 @@ function AdminDashboard() {
                          className={`p-5 rounded-2xl cursor-pointer border-2 transition-all ${selectedTeacher?.id === t.id ? 'border-emerald-500 bg-emerald-50' : 'border-transparent bg-slate-50 hover:bg-slate-100'}`}>
                       <p className="font-black text-slate-800 uppercase text-sm">{t.name}</p>
                       <p className="text-[10px] font-bold text-slate-400 uppercase">{t.dept} • {t.staff_id}</p>
+                      {t.allocated_sections && t.allocated_sections.length > 0 && (
+                        <p className="text-[10px] text-emerald-600 font-bold mt-1">
+                          Currently: {t.allocated_sections.join(', ')}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Select Students */}
+              {/* Select Sections */}
               <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
-                <h3 className="text-xs font-black text-slate-400 uppercase mb-6 tracking-widest">2. Select Students</h3>
+                <h3 className="text-xs font-black text-slate-400 uppercase mb-6 tracking-widest">2. Select Class/Section</h3>
                 <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-                  {students.map(s => (
-                    <div key={s.id} onClick={() => toggleStudentSelection(s.id)} 
-                         className={`p-5 rounded-2xl cursor-pointer border-2 transition-all ${selectedStudents.includes(s.id) ? 'border-blue-500 bg-blue-50' : 'border-transparent bg-slate-50 hover:bg-slate-100'}`}>
-                      <p className="font-black text-slate-800 uppercase text-sm">{s.name}</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">{s.class_dept} {s.section} • {s.reg_no}</p>
-                    </div>
-                  ))}
+                  {availableSections.length === 0 ? (
+                    <p className="text-slate-400 text-sm">No sections found. Register students first.</p>
+                  ) : (
+                    availableSections.map(section => (
+                      <div key={section.id} onClick={() => toggleSectionSelection(section.id)} 
+                           className={`p-5 rounded-2xl cursor-pointer border-2 transition-all ${selectedSections.includes(section.id) ? 'border-blue-500 bg-blue-50' : 'border-transparent bg-slate-50 hover:bg-slate-100'}`}>
+                        <p className="font-black text-slate-800 uppercase text-sm">{section.class_dept} - {section.section}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">{section.student_count} student(s)</p>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -391,8 +422,20 @@ function AdminDashboard() {
                     </div>
                     
                     <div className="p-4 bg-blue-50 rounded-2xl">
-                      <p className="text-[10px] uppercase font-bold text-blue-600">Students Selected</p>
-                      <p className="text-2xl font-black text-blue-600">{selectedStudents.length}</p>
+                      <p className="text-[10px] uppercase font-bold text-blue-600">Sections Selected</p>
+                      <p className="text-2xl font-black text-blue-600">{selectedSections.length}</p>
+                      {selectedSections.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {availableSections
+                            .filter(s => selectedSections.includes(s.id))
+                            .map(s => (
+                              <span key={s.id} className="text-xs bg-blue-200 px-2 py-1 rounded-lg font-bold">
+                                {s.class_dept}-{s.section}
+                              </span>
+                            ))
+                          }
+                        </div>
+                      )}
                     </div>
 
                     <input 

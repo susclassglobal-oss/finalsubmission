@@ -658,6 +658,100 @@ app.post('/api/admin/allocate', authenticateToken, adminOnly, async (req, res) =
   }
 });
 
+// 7g2. Admin: Get Available Sections (unique class/section combinations)
+app.get('/api/admin/sections', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        ROW_NUMBER() OVER (ORDER BY class_dept, section) as id,
+        class_dept, 
+        section, 
+        COUNT(*) as student_count
+      FROM students 
+      WHERE class_dept IS NOT NULL AND section IS NOT NULL
+      GROUP BY class_dept, section 
+      ORDER BY class_dept, section
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 7g3. Admin: Allocate Teacher to Sections (Class-based allocation)
+app.post('/api/admin/allocate-sections', authenticateToken, adminOnly, async (req, res) => {
+  const { teacher_id, sections, subject } = req.body;
+  
+  if (!teacher_id || !sections || sections.length === 0 || !subject) {
+    return res.status(400).json({ error: "Teacher ID, sections, and subject are required" });
+  }
+  
+  try {
+    // Get the section details from the section IDs
+    const sectionResult = await pool.query(`
+      SELECT DISTINCT class_dept, section 
+      FROM students 
+      WHERE class_dept IS NOT NULL AND section IS NOT NULL
+      ORDER BY class_dept, section
+    `);
+    
+    // Create array of section strings to update teacher
+    const allSections = sectionResult.rows;
+    const selectedSectionStrings = sections.map(sectionId => {
+      const idx = parseInt(sectionId) - 1;
+      if (idx >= 0 && idx < allSections.length) {
+        return `${allSections[idx].class_dept}-${allSections[idx].section}`;
+      }
+      return null;
+    }).filter(Boolean);
+    
+    // Get current allocated sections for this teacher
+    const teacherResult = await pool.query(
+      'SELECT allocated_sections FROM teachers WHERE id = $1',
+      [teacher_id]
+    );
+    
+    let currentSections = teacherResult.rows[0]?.allocated_sections || [];
+    
+    // Add new sections (avoiding duplicates)
+    const updatedSections = [...new Set([...currentSections, ...selectedSectionStrings])];
+    
+    // Update teacher's allocated_sections
+    await pool.query(
+      'UPDATE teachers SET allocated_sections = $1 WHERE id = $2',
+      [updatedSections, teacher_id]
+    );
+    
+    // Also create teacher_student_allocations for all students in these sections
+    for (const section of allSections) {
+      const sectionString = `${section.class_dept}-${section.section}`;
+      if (selectedSectionStrings.includes(sectionString)) {
+        // Get all students in this section
+        const studentsResult = await pool.query(
+          'SELECT id FROM students WHERE class_dept = $1 AND section = $2',
+          [section.class_dept, section.section]
+        );
+        
+        // Create allocations for each student
+        for (const student of studentsResult.rows) {
+          await pool.query(
+            'INSERT INTO teacher_student_allocations (teacher_id, student_id, subject) VALUES ($1, $2, $3) ON CONFLICT (teacher_id, student_id, subject) DO NOTHING',
+            [teacher_id, student.id, subject]
+          );
+        }
+      }
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Teacher assigned to ${selectedSectionStrings.length} section(s): ${selectedSectionStrings.join(', ')}` 
+    });
+  } catch (err) {
+    console.error("Section allocation error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 7h. Admin: Get Teacher's Students
 app.get('/api/admin/teacher/:id/students', authenticateToken, adminOnly, async (req, res) => {
   const { id } = req.params;
@@ -812,6 +906,96 @@ app.get('/api/student/profile', authenticateToken, async (req, res) => {
     });
   } catch (err) {
     console.error("Student Profile Error:", err);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+// GET STUDENT RECENT MODULES
+app.get('/api/student/recent-modules', authenticateToken, async (req, res) => {
+  try {
+    const studentResult = await pool.query(
+      'SELECT section FROM students WHERE id = $1',
+      [req.user.id]
+    );
+    
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+    
+    const section = studentResult.rows[0].section;
+    
+    // Get modules for student's section, ordered by most recent
+    const modulesResult = await pool.query(`
+      SELECT m.id, m.topic_title, m.subject, m.section, m.created_at,
+        COALESCE(
+          (SELECT COUNT(*) * 100 / NULLIF(m.step_count, 0) 
+           FROM module_completion mc 
+           WHERE mc.module_id = m.id AND mc.student_id = $1 AND mc.is_completed = true), 
+          0
+        ) as progress
+      FROM modules m 
+      WHERE m.section = $2 
+      ORDER BY m.created_at DESC 
+      LIMIT 5
+    `, [req.user.id, section]);
+    
+    res.json(modulesResult.rows);
+  } catch (err) {
+    console.error("Recent modules error:", err);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+// GET STUDENT STATS
+app.get('/api/student/stats', authenticateToken, async (req, res) => {
+  try {
+    const studentResult = await pool.query(
+      'SELECT section FROM students WHERE id = $1',
+      [req.user.id]
+    );
+    
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+    
+    const section = studentResult.rows[0].section;
+    
+    // Get total modules for section
+    const totalResult = await pool.query(
+      'SELECT COUNT(*) as total FROM modules WHERE section = $1',
+      [section]
+    );
+    
+    // Get completed modules (all steps completed)
+    const completedResult = await pool.query(`
+      SELECT COUNT(DISTINCT m.id) as completed
+      FROM modules m
+      WHERE m.section = $1 
+      AND NOT EXISTS (
+        SELECT 1 FROM generate_series(1, m.step_count) s(n)
+        WHERE NOT EXISTS (
+          SELECT 1 FROM module_completion mc 
+          WHERE mc.module_id = m.id AND mc.student_id = $2 AND mc.step_index = s.n AND mc.is_completed = true
+        )
+      )
+    `, [section, req.user.id]);
+    
+    // Calculate streak (consecutive days with activity)
+    const streakResult = await pool.query(`
+      SELECT COUNT(DISTINCT DATE(completed_at)) as streak
+      FROM module_completion
+      WHERE student_id = $1 
+      AND completed_at >= CURRENT_DATE - INTERVAL '30 days'
+      AND is_completed = true
+    `, [req.user.id]);
+    
+    res.json({
+      modulesCompleted: parseInt(completedResult.rows[0]?.completed || 0),
+      totalModules: parseInt(totalResult.rows[0]?.total || 0),
+      streak: parseInt(streakResult.rows[0]?.streak || 0)
+    });
+  } catch (err) {
+    console.error("Student stats error:", err);
     res.status(500).json({ error: "Database error" });
   }
 });

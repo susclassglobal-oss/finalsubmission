@@ -61,7 +61,9 @@ function Courses() {
           >
             <div className="relative z-10">
               <div className="text-3xl mb-6 bg-emerald-50 text-emerald-600 w-16 h-16 flex items-center justify-center rounded-2xl group-hover:bg-emerald-500 group-hover:text-white transition-all duration-500">
-                <span role="img" aria-label="code">💻</span>
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
               </div>
               <h2 className="text-2xl font-bold mb-2">Coding Workbench</h2>
               <p className="text-slate-500 mb-6">Practice HTML, CSS, and JS in a sandbox environment.</p>
@@ -80,7 +82,9 @@ function Courses() {
           >
             <div className="relative z-10">
               <div className="text-3xl mb-6 bg-white/10 text-emerald-400 w-16 h-16 flex items-center justify-center rounded-2xl group-hover:scale-110 transition-transform duration-500">
-                <span role="img" aria-label="rocket">🚀</span>
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
               </div>
               <h2 className="text-2xl font-bold mb-2">Next Lesson</h2>
               <p className="text-slate-400 mb-6">

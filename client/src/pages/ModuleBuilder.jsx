@@ -18,6 +18,13 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
   const [mcqData, setMcqData] = useState({ question: '', a: '', b: '', c: '', d: '', correct: 'A' });
   const [codeStarter, setCodeStarter] = useState("// Write your solution code here");
   
+  // Jitsi Live Video State
+  const [jitsiData, setJitsiData] = useState({
+    roomName: "",
+    scheduledTime: "",
+    duration: 60 // minutes
+  });
+  
   // Coding Problem States
   const [codingProblem, setCodingProblem] = useState({
     description: "",
@@ -101,6 +108,16 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
       } else {
         return alert("Please upload a video file or provide a URL");
       }
+    } else if (contentType === 'jitsi') {
+      // Validate Jitsi live video
+      if (!jitsiData.roomName) return alert("Please provide a room name for the live session");
+      if (!jitsiData.scheduledTime) return alert("Please set a scheduled time for the live session");
+      stepData = {
+        roomName: jitsiData.roomName.replace(/\s+/g, '-').toLowerCase(),
+        scheduledTime: jitsiData.scheduledTime,
+        duration: jitsiData.duration,
+        meetingUrl: `https://8x8.vc/${jitsiData.roomName.replace(/\s+/g, '-').toLowerCase()}`
+      };
     } else if (contentType === 'coding') {
       // Validate coding problem
       if (!codingProblem.description) return alert("Please add a problem description");
@@ -123,6 +140,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
     setVideoUrl(""); 
     setVideoFile(null);
     setMcqData({ question: '', a: '', b: '', c: '', d: '', correct: 'A' });
+    setJitsiData({ roomName: "", scheduledTime: "", duration: 60 });
     setCodingProblem({
       description: "",
       starterCode: {
@@ -250,7 +268,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
               <div className="grid grid-cols-2 gap-6">
                 <div className="bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-200">
                   <label className="text-xs font-black text-emerald-700 uppercase mb-3 block">
-                    📚 Target Section
+                    Target Section
                   </label>
                   <select 
                     className="w-full p-4 bg-white rounded-xl font-bold border-2 border-emerald-300 focus:border-emerald-500 outline-none"
@@ -263,13 +281,13 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                     ))}
                   </select>
                   {!targetSection && (
-                    <p className="text-xs text-red-600 font-bold mt-2">⚠️ Required</p>
+                    <p className="text-xs text-red-600 font-bold mt-2">Required</p>
                   )}
                 </div>
 
                 <div className="bg-purple-50 p-6 rounded-2xl border-2 border-purple-200">
                   <label className="text-xs font-black text-purple-700 uppercase mb-3 block">
-                    📖 Target Subject
+                    Target Subject
                   </label>
                   <input
                     type="text"
@@ -279,7 +297,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                     onChange={e => setTargetSubject(e.target.value)}
                   />
                   {!targetSubject && (
-                    <p className="text-xs text-red-600 font-bold mt-2">⚠️ Required</p>
+                    <p className="text-xs text-red-600 font-bold mt-2">Required</p>
                   )}
                 </div>
               </div>
@@ -287,11 +305,12 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
               <div className="grid grid-cols-2 gap-6">
                 <input type="text" placeholder="Step Topic" className="p-6 bg-slate-50 rounded-2xl font-bold" value={topicTitle} onChange={e => setTopicTitle(e.target.value)} />
                 <select className="p-6 bg-slate-50 rounded-2xl font-bold" value={contentType} onChange={e => setContentType(e.target.value)}>
-                  <option value="text">📝 Text Lesson</option>
-                  <option value="video">🎥 Video Upload</option>
-                  <option value="mcq">❓ Quiz (MCQ)</option>
-                  <option value="coding">💻 Coding Problem (Auto-Graded)</option>
-                  <option value="code">📋 Code Example (Display Only)</option>
+                  <option value="text">Text Lesson</option>
+                  <option value="video">Video Upload</option>
+                  <option value="jitsi">Live Video (Jitsi)</option>
+                  <option value="mcq">Quiz (MCQ)</option>
+                  <option value="coding">Coding Problem</option>
+                  <option value="code">Code Example</option>
                 </select>
               </div>
 
@@ -301,7 +320,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                 <div className="space-y-4">
                   <div className="bg-blue-50 p-6 rounded-2xl border-2 border-blue-200">
                     <label className="text-xs font-black text-blue-700 uppercase mb-3 block">
-                      🎥 Upload Video to Cloudinary
+                      Upload Video to Cloudinary
                     </label>
                     <input 
                       type="file" 
@@ -311,12 +330,12 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                     />
                     {videoFile && (
                       <p className="text-xs text-blue-600 font-bold mt-2">
-                        ✓ Selected: {videoFile.name}
+                        Selected: {videoFile.name}
                       </p>
                     )}
                     {uploadingVideo && (
                       <p className="text-xs text-blue-600 font-bold mt-2 animate-pulse">
-                        ⏳ Uploading video...
+                        Uploading video...
                       </p>
                     )}
                   </div>
@@ -330,6 +349,59 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                     value={videoUrl} 
                     onChange={e => setVideoUrl(e.target.value)} 
                   />
+                </div>
+              )}
+              
+              {contentType === 'jitsi' && (
+                <div className="space-y-4 bg-gradient-to-br from-indigo-50 to-purple-50 p-8 rounded-2xl border-2 border-indigo-200">
+                  <div className="bg-white p-6 rounded-2xl border-2 border-indigo-200">
+                    <label className="text-xs font-black text-indigo-700 uppercase mb-3 block">
+                      Room Name (No spaces)
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g., math-class-10a"
+                      className="w-full p-4 bg-slate-50 rounded-xl border-2 border-indigo-300 font-mono"
+                      value={jitsiData.roomName}
+                      onChange={e => setJitsiData({...jitsiData, roomName: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white p-6 rounded-2xl border-2 border-indigo-200">
+                      <label className="text-xs font-black text-indigo-700 uppercase mb-3 block">
+                        Scheduled Date/Time
+                      </label>
+                      <input 
+                        type="datetime-local" 
+                        className="w-full p-4 bg-slate-50 rounded-xl border-2 border-indigo-300"
+                        value={jitsiData.scheduledTime}
+                        onChange={e => setJitsiData({...jitsiData, scheduledTime: e.target.value})}
+                      />
+                    </div>
+                    
+                    <div className="bg-white p-6 rounded-2xl border-2 border-indigo-200">
+                      <label className="text-xs font-black text-indigo-700 uppercase mb-3 block">
+                        Duration (minutes)
+                      </label>
+                      <input 
+                        type="number" 
+                        min="15"
+                        max="180"
+                        className="w-full p-4 bg-slate-50 rounded-xl border-2 border-indigo-300"
+                        value={jitsiData.duration}
+                        onChange={e => setJitsiData({...jitsiData, duration: parseInt(e.target.value) || 60})}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-indigo-100 p-4 rounded-xl text-sm text-indigo-700">
+                    <p className="font-bold">Live Session Info:</p>
+                    <p>Students will be able to join the Jitsi meeting at the scheduled time.</p>
+                    <p className="mt-2 font-mono text-xs">
+                      Meeting URL: https://8x8.vc/{jitsiData.roomName.replace(/\s+/g, '-').toLowerCase() || 'room-name'}
+                    </p>
+                  </div>
                 </div>
               )}
               
@@ -353,7 +425,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                   {/* Problem Description */}
                   <div>
                     <label className="text-xs font-black text-slate-700 uppercase mb-2 block">
-                      📋 Problem Description
+                      Problem Description
                     </label>
                     <textarea 
                       placeholder="Describe the coding problem. Example: Write a program that takes two numbers as input and prints their sum."
@@ -366,7 +438,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                   {/* Starter Code Templates */}
                   <div>
                     <label className="text-xs font-black text-slate-700 uppercase mb-3 block">
-                      🎯 Starter Code Templates (Students will see this)
+                      Starter Code Templates (Students will see this)
                     </label>
                     <div className="grid grid-cols-2 gap-4">
                       {Object.keys(codingProblem.starterCode).map(lang => (
@@ -389,7 +461,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                   <div>
                     <div className="flex justify-between items-center mb-3">
                       <label className="text-xs font-black text-slate-700 uppercase">
-                        ✅ Test Cases (For Auto-Grading)
+                        Test Cases (For Auto-Grading)
                       </label>
                       <button
                         type="button"
