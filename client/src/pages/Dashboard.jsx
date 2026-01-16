@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TimeTracker from '../components/TimeTracker';
+import NotificationBell from '../components/NotificationBell';
 import API_BASE_URL from '../config/api';
 
 function Dashboard() {
@@ -90,6 +91,7 @@ function Dashboard() {
             <span className="font-bold text-slate-700">Sustainable Classroom</span>
           </div>
           <div className="flex items-center gap-4">
+            <NotificationBell />
             <button onClick={() => navigate('/profile')} className="text-sm text-slate-600 hover:text-emerald-600">
               {userInfo?.full_name || 'Profile'}
             </button>

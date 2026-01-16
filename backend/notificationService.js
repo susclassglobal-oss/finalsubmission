@@ -112,6 +112,39 @@ const emailTemplates = {
     `
   }),
 
+  TEST_DEADLINE_REMINDER: (data) => ({
+    subject: `⏰ Urgent: Test "${data.test_title}" Due in ${data.hours_remaining} Hours!`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
+        <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.06);">
+          <h2 style="color: #dc2626; margin-bottom: 16px; font-weight: 700;">⏰ Test Deadline Approaching!</h2>
+          <p style="color: #1f2937; line-height: 1.6;">Hello <strong>${data.student_name}</strong>,</p>
+          <p style="color: #1f2937; line-height: 1.6;">This is an urgent reminder! Your test deadline is approaching:</p>
+          
+          <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+            <h3 style="color: #dc2626; margin: 0 0 10px 0; font-size: 20px;">${data.test_title}</h3>
+            <p style="color: #b91c1c; margin: 5px 0;"><strong>Section:</strong> ${data.section}</p>
+            <p style="color: #b91c1c; margin: 5px 0;"><strong>Teacher:</strong> ${data.teacher_name}</p>
+            <p style="color: #b91c1c; margin: 5px 0; font-size: 18px; font-weight: bold;">⏰ Due: ${data.deadline}</p>
+            <p style="color: #dc2626; margin: 10px 0; font-size: 24px; font-weight: bold;">Only ${data.hours_remaining} hours remaining!</p>
+          </div>
+          
+          <p style="color: #1f2937; line-height: 1.6; font-weight: 600;">Don't miss the deadline! Complete your test now.</p>
+          
+          <a href="${FRONTEND_BASE}/test" 
+             style="display: inline-block; background-color: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; margin-top: 20px; font-weight: 700; font-size: 16px;">
+            Take Test Now - ${data.total_questions} Questions
+          </a>
+          
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+          <p style="color: #6b7280; font-size: 12px;">
+            <a href="${FRONTEND_BASE}/settings/notifications" style="color: #111827; text-decoration: underline;">Manage notification preferences</a>
+          </p>
+        </div>
+      </div>
+    `
+  }),
+
   TEST_DEADLINE_24H: (data) => ({
     subject: `Reminder: Test "${data.test_title}" Due in 24 Hours`,
     html: `

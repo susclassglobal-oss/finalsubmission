@@ -1103,6 +1103,7 @@ app.post('/api/teacher/upload-module', authenticateToken, async (req, res) => {
       const students = await notificationService.getStudentsInSection(section, 'MODULE_PUBLISHED');
       
       if (students.length > 0) {
+        // Send email notifications
         await notificationService.sendBatchEmails(
           'MODULE_PUBLISHED',
           students,
@@ -1116,6 +1117,28 @@ app.post('/api/teacher/upload-module', authenticateToken, async (req, res) => {
           }),
           { module_id: moduleId, teacher_id: teacherId }
         );
+        
+        // Create in-app notifications for each student
+        for (const student of students) {
+          await pool.query(`
+            INSERT INTO in_app_notifications 
+            (recipient_type, recipient_id, type, title, message, metadata, created_at)
+            VALUES ('student', $1, 'module_published', $2, $3, $4, CURRENT_TIMESTAMP)
+          `, [
+            student.id,
+            'New Module Available',
+            `📚 ${teacherName} published "${topic}" for ${section}. Start learning now!`,
+            JSON.stringify({
+              module_id: moduleId,
+              module_title: topic,
+              teacher_name: teacherName,
+              section: section,
+              subject: subject,
+              step_count: steps.length
+            })
+          ]);
+        }
+        
         console.log(`✓ Sent MODULE_PUBLISHED notifications to ${students.length} students`);
       }
     } catch (notifErr) {
@@ -1400,6 +1423,24 @@ app.post('/api/student/module/:moduleId/complete', authenticateToken, async (req
               console.log(`✓ Sent module completion notification to teacher ${teacher.name}`);
             }
           }
+          
+          // Also create achievement notification for the student
+          await pool.query(`
+            INSERT INTO in_app_notifications 
+            (recipient_type, recipient_id, type, title, message, metadata, created_at)
+            VALUES ('student', $1, 'module_achievement', $2, $3, $4, CURRENT_TIMESTAMP)
+          `, [
+            studentId,
+            '🎉 Module Completed!',
+            `Congratulations! You completed "${module.topic_title}" with all ${module.step_count} steps.`,
+            JSON.stringify({
+              module_id: moduleId,
+              module_title: module.topic_title,
+              section: module.section,
+              completion_time: new Date().toISOString(),
+              steps_completed: module.step_count
+            })
+          ]);
         } catch (notifErr) {
           console.error('Failed to send teacher notification:', notifErr);
           // Don't fail the completion if notification fails
@@ -1470,6 +1511,24 @@ app.post('/api/student/module/:moduleId/complete', authenticateToken, async (req
             console.log(`✓ Sent module completion notification to teacher ${teacher.name}`);
           }
         }
+        
+        // Also create achievement notification for the student
+        await pool.query(`
+          INSERT INTO in_app_notifications 
+          (recipient_type, recipient_id, type, title, message, metadata, created_at)
+          VALUES ('student', $1, 'module_achievement', $2, $3, $4, CURRENT_TIMESTAMP)
+        `, [
+          studentId,
+          '🎉 Module Completed!',
+          `Congratulations! You completed "${module.topic_title}" with all ${module.step_count} steps.`,
+          JSON.stringify({
+            module_id: moduleId,
+            module_title: module.topic_title,
+            section: module.section,
+            completion_time: new Date().toISOString(),
+            steps_completed: module.step_count
+          })
+        ]);
       } catch (notifErr) {
         console.error('Failed to send teacher notification:', notifErr);
         // Don't fail the completion if notification fails
@@ -1709,6 +1768,7 @@ app.post('/api/teacher/test/create', authenticateToken, async (req, res) => {
       const students = await notificationService.getStudentsInSection(section, 'TEST_ASSIGNED');
       
       if (students.length > 0) {
+        // Send email notifications
         await notificationService.sendBatchEmails(
           'TEST_ASSIGNED',
           students,
@@ -1723,6 +1783,29 @@ app.post('/api/teacher/test/create', authenticateToken, async (req, res) => {
           }),
           { test_id: test.id, teacher_id: teacher_id }
         );
+        
+        // Create in-app notifications for each student
+        for (const student of students) {
+          await pool.query(`
+            INSERT INTO in_app_notifications 
+            (recipient_type, recipient_id, type, title, message, metadata, created_at)
+            VALUES ('student', $1, 'test_assigned', $2, $3, $4, CURRENT_TIMESTAMP)
+          `, [
+            student.id,
+            'New Test Assigned',
+            `📝 Test "${title}" assigned by ${teacher_name}. Due: ${new Date(deadline).toLocaleDateString()}`,
+            JSON.stringify({
+              test_id: test.id,
+              test_title: title,
+              teacher_name: teacher_name,
+              section: section,
+              start_date: start_date,
+              deadline: deadline,
+              total_questions: questions.length
+            })
+          ]);
+        }
+        
         console.log(`✓ Sent TEST_ASSIGNED notifications to ${students.length} students`);
       }
     } catch (notifErr) {
@@ -2042,7 +2125,29 @@ app.post('/api/student/test/submit', authenticateToken, async (req, res) => {
           },
           { test_id, submission_id: submission.id }
         );
+        
+        // Create in-app notification for student
+        await pool.query(`
+          INSERT INTO in_app_notifications 
+          (recipient_type, recipient_id, type, title, message, metadata, created_at)
+          VALUES ('student', $1, 'grade_posted', $2, $3, $4, CURRENT_TIMESTAMP)
+        `, [
+          student_id,
+          'Grade Posted',
+          `📊 Your grade for "${testInfo.rows[0].title}" is ready: ${score}/${total_questions} (${percentage}%)`,
+          JSON.stringify({
+            test_id: test_id,
+            test_title: testInfo.rows[0].title,
+            score: score,
+            total_questions: total_questions,
+            percentage: percentage,
+            status: status,
+            graded_at: new Date().toISOString()
+          })
+        ]);
+        
         console.log(`✓ Sent GRADE_POSTED notification to student ${name}`);
+      }
       }
     } catch (notifErr) {
       console.error('Student grade notification error (non-blocking):', notifErr);
@@ -2347,6 +2452,99 @@ if (process.env.ENABLE_DEV_ENDPOINTS === 'true' || process.env.NODE_ENV !== 'pro
     }
   });
 }
+
+// Send deadline reminders for upcoming tests (can be called via cron job)
+app.post('/api/admin/send-deadline-reminders', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin (for security)
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Find tests with deadlines in next 24 hours that haven't been submitted
+    const upcomingTests = await pool.query(`
+      SELECT DISTINCT t.id, t.title, t.section, t.teacher_name, t.deadline, t.total_questions
+      FROM mcq_tests t
+      WHERE t.deadline > NOW() 
+        AND t.deadline <= NOW() + INTERVAL '24 hours'
+        AND t.is_active = true
+    `);
+
+    let remindersSent = 0;
+
+    for (const test of upcomingTests.rows) {
+      try {
+        // Get students in this section who haven't submitted
+        const students = await notificationService.getStudentsInSection(test.section, 'TEST_DEADLINE_REMINDER');
+        
+        // Filter out students who already submitted
+        const unsubmittedStudents = [];
+        for (const student of students) {
+          const submissionCheck = await pool.query(
+            'SELECT id FROM mcq_submissions WHERE test_id = $1 AND student_id = $2',
+            [test.id, student.id]
+          );
+          if (submissionCheck.rows.length === 0) {
+            unsubmittedStudents.push(student);
+          }
+        }
+
+        if (unsubmittedStudents.length > 0) {
+          // Send email reminders
+          await notificationService.sendBatchEmails(
+            'TEST_DEADLINE_REMINDER',
+            unsubmittedStudents,
+            (student) => ({
+              student_name: student.name,
+              test_title: test.title,
+              teacher_name: test.teacher_name,
+              section: test.section,
+              deadline: new Date(test.deadline).toLocaleString(),
+              hours_remaining: Math.ceil((new Date(test.deadline) - new Date()) / (1000 * 60 * 60)),
+              total_questions: test.total_questions
+            }),
+            { test_id: test.id }
+          );
+
+          // Send in-app notifications
+          for (const student of unsubmittedStudents) {
+            await pool.query(`
+              INSERT INTO in_app_notifications 
+              (recipient_type, recipient_id, type, title, message, metadata, created_at)
+              VALUES ('student', $1, 'test_deadline_reminder', $2, $3, $4, CURRENT_TIMESTAMP)
+            `, [
+              student.id,
+              '⏰ Test Deadline Reminder',
+              `"${test.title}" is due in ${Math.ceil((new Date(test.deadline) - new Date()) / (1000 * 60 * 60))} hours! Don't forget to submit.`,
+              JSON.stringify({
+                test_id: test.id,
+                test_title: test.title,
+                teacher_name: test.teacher_name,
+                section: test.section,
+                deadline: test.deadline,
+                priority: 'high'
+              })
+            ]);
+          }
+
+          remindersSent += unsubmittedStudents.length;
+          console.log(`✓ Sent deadline reminders for "${test.title}" to ${unsubmittedStudents.length} students`);
+        }
+      } catch (testErr) {
+        console.error(`Error sending reminders for test ${test.id}:`, testErr);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      tests_processed: upcomingTests.rows.length,
+      reminders_sent: remindersSent 
+    });
+  } catch (err) {
+    console.error('Send Deadline Reminders Error:', err);
+    res.status(500).json({ error: 'Failed to send deadline reminders' });
+  }
+});
 
 // SPA fallback - serve index.html for any non-API routes
 app.get('*', (req, res) => {
