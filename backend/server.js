@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const path = require('path');
 const { Pool } = require('pg');
 const cors = require('cors');
 const cloudinary = require('cloudinary').v2;
@@ -13,6 +14,11 @@ const notificationService = require('./notificationService');
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+// Serve static frontend files in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'public')));
+}
 
 // --- CONFIGURATION ---
 const SALT_ROUNDS = 10;
@@ -1540,6 +1546,25 @@ app.get('/api/notifications/stats', authenticateToken, async (req, res) => {
   }
 });
 
+// Health check endpoint for Docker/Render
+app.get('/api/health', async (req, res) => {
+  try {
+    // Simple database connectivity check
+    await pool.query('SELECT 1');
+    res.json({ 
+      status: 'healthy', 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  } catch (err) {
+    res.status(503).json({ 
+      status: 'unhealthy', 
+      error: 'Database connection failed',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Manual test notification (development only)
 if (process.env.ENABLE_DEV_ENDPOINTS === 'true' || process.env.NODE_ENV !== 'production') {
   app.post('/api/notifications/test', authenticateToken, async (req, res) => {
@@ -1559,6 +1584,17 @@ if (process.env.ENABLE_DEV_ENDPOINTS === 'true' || process.env.NODE_ENV !== 'pro
       console.error('Test Notification Error:', err);
       res.status(500).json({ error: err.message });
     }
+  });
+}
+
+// Serve React app for all non-API routes in production (SPA catch-all)
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    // Don't catch API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
   });
 }
 

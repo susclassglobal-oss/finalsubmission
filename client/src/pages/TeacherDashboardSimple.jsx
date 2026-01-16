@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config/api';
 
 function TeacherDashboardSimple() {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ function TeacherDashboardSimple() {
       console.log("Fetching teacher profile with token:", token.substring(0, 20) + "...");
 
       try {
-        const res = await fetch('http://localhost:5000/api/teacher/me', {
+        const res = await fetch(`${API_URL}/api/teacher/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

@@ -5,6 +5,10 @@
 # ============================================================
 FROM node:18-alpine AS frontend-builder
 
+# Build argument for API URL (can be overridden during build)
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+
 WORKDIR /app/client
 
 # Copy client dependencies
@@ -16,7 +20,7 @@ RUN npm ci
 # Copy client source
 COPY client/ .
 
-# Build the frontend
+# Build the frontend with environment variable
 RUN npm run build
 
 # ============================================================
@@ -40,8 +44,9 @@ COPY backend/package*.json ./
 # Install backend dependencies
 RUN npm ci --only=production
 
-# Copy backend source
+# Copy backend source files
 COPY backend/server.js .
+COPY backend/notificationService.js .
 
 # Create public directory for serving frontend
 RUN mkdir -p /app/backend/public

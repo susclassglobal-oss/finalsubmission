@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config/api';
 
 export default function ProgressTracker() {
   const navigate = useNavigate();
@@ -10,7 +11,7 @@ export default function ProgressTracker() {
     const fetchProgress = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/student/progress', {
+        const res = await fetch(`${API_URL}/api/student/progress`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();

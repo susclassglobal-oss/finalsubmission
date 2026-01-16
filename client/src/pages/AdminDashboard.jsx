@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../config/api';
 
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('student'); // 'student', 'teacher', 'manage-students', 'manage-teachers', 'allocation'
@@ -43,7 +44,7 @@ function AdminDashboard() {
 
   const fetchTeachers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/teachers', { headers: authHeaders });
+      const res = await fetch(`${API_URL}/api/admin/teachers`, { headers: authHeaders });
       const data = await res.json();
       setTeachers(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -53,7 +54,7 @@ function AdminDashboard() {
 
   const fetchStudents = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/students', { headers: authHeaders });
+      const res = await fetch(`${API_URL}/api/admin/students`, { headers: authHeaders });
       const data = await res.json();
       setStudents(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -67,7 +68,7 @@ function AdminDashboard() {
     }
     
     try {
-      const res = await fetch('http://localhost:5000/api/admin/allocate', {
+      const res = await fetch(`${API_URL}/api/admin/allocate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ 
@@ -113,7 +114,7 @@ function AdminDashboard() {
         const fileData = new FormData();
         fileData.append('file', selectedFile);
 
-        const upRes = await fetch('http://localhost:5000/api/upload', { 
+        const upRes = await fetch(`${API_URL}/api/upload`, { 
           method: 'POST', 
           headers: authHeaders, 
           body: fileData 
@@ -134,7 +135,7 @@ function AdminDashboard() {
         ? { ...studentData, media: mediaInfo } 
         : { ...teacherData, media: mediaInfo };
 
-      const response = await fetch(`http://localhost:5000/api/admin/${endpoint}`, {
+      const response = await fetch(`${API_URL}/api/admin/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(payload)
@@ -171,7 +172,7 @@ function AdminDashboard() {
     if (!name || !email) return;
     
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/teacher/${teacher.id}`, {
+      const res = await fetch(`${API_URL}/api/admin/teacher/${teacher.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ name, email, staff_id, dept })
@@ -190,7 +191,7 @@ function AdminDashboard() {
     if (!confirm("Delete this teacher? This will remove all their data including modules and tests.")) return;
     
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/teacher/${id}`, {
+      const res = await fetch(`${API_URL}/api/admin/teacher/${id}`, {
         method: 'DELETE',
         headers: authHeaders
       });
@@ -214,7 +215,7 @@ function AdminDashboard() {
     if (!name || !email) return;
     
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/student/${student.id}`, {
+      const res = await fetch(`${API_URL}/api/admin/student/${student.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ name, email, reg_no, class_dept, section })
@@ -233,7 +234,7 @@ function AdminDashboard() {
     if (!confirm("Delete this student? This will remove all their data including test submissions.")) return;
     
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/student/${id}`, {
+      const res = await fetch(`${API_URL}/api/admin/student/${id}`, {
         method: 'DELETE',
         headers: authHeaders
       });

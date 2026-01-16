@@ -36,7 +36,13 @@ services:
         sync: false
       - key: SMTP_USER
         sync: false
-      - key: SMTP_PASS
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_APP_PASSWORD
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: VITE_API_URL
         sync: false
 
 # Database (optional - can use external Neon PostgreSQL instead)
