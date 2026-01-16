@@ -1,35 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import NotificationBell from '../components/NotificationBell';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 function Courses() {
   const navigate = useNavigate();
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState(null);
   const token = localStorage.getItem('token');
 
   const fetchMyModules = useCallback(async () => {
   try {
-    const headers = { 
-      'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      'Content-Type': 'application/json'
-    };
-    
-    const [modulesRes, profileRes] = await Promise.all([
-      fetch(`${API_URL}/api/student/my-modules`, { headers }),
-      fetch(`${API_URL}/api/student/profile`, { headers })
-    ]);
-    
-    if (modulesRes.ok) {
-      const data = await modulesRes.json();
-      setModules(Array.isArray(data) ? data : []);
-    }
-    if (profileRes.ok) {
-      setProfile(await profileRes.json());
-    }
+    const res = await fetch('http://localhost:5000/api/student/my-modules', {
+      headers: { 
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    const data = await res.json();
+    console.log("Frontend Data Check:", data); // Press F12 in browser to see this!
+    setModules(Array.isArray(data) ? data : []);
   } catch (err) {
     console.error("Fetch error:", err);
   } finally {
@@ -48,6 +36,8 @@ function Courses() {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 lg:p-12 text-slate-900 font-sans">
       <div className="max-w-6xl mx-auto">
+        
+        {/* Navigation */}
         <button 
           onClick={() => navigate('/dashboard')}
           className="mb-8 flex items-center gap-2 text-slate-500 hover:text-emerald-600 font-semibold transition-all text-sm group"
@@ -55,21 +45,22 @@ function Courses() {
           <span className="group-hover:-translate-x-1 transition-transform">←</span> Back to Dashboard
         </button>
 
-        <header className="mb-12 flex justify-between items-start">
-          <div>
-            <h1 className="text-4xl font-black tracking-tight text-slate-900">Learning Hub</h1>
-            <p className="text-slate-500 mt-2 text-lg">Your personalized workspace for {profile?.class_dept} {profile?.section}.</p>
-          </div>
-          <NotificationBell />
+        <header className="mb-12">
+          <h1 className="text-4xl font-black tracking-tight text-slate-900">Department Hub</h1>
+          <p className="text-slate-500 mt-2 text-lg">Your personalized workspace for ECE A.</p>
         </header>
+
+        {/* Top Hero Section: Side-by-Side Tools */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
+          
+          {/* TOOL 1: CODING WORKBENCH */}
           <div
             onClick={() => navigate('/courses/code')}
             className="group cursor-pointer relative overflow-hidden p-8 rounded-[2rem] bg-white border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-500"
           >
             <div className="relative z-10">
               <div className="text-3xl mb-6 bg-emerald-50 text-emerald-600 w-16 h-16 flex items-center justify-center rounded-2xl group-hover:bg-emerald-500 group-hover:text-white transition-all duration-500">
-                <span role="img" aria-label="code"></span>
+                <span role="img" aria-label="code">💻</span>
               </div>
               <h2 className="text-2xl font-bold mb-2">Coding Workbench</h2>
               <p className="text-slate-500 mb-6">Practice HTML, CSS, and JS in a sandbox environment.</p>
@@ -78,6 +69,8 @@ function Courses() {
               </span>
             </div>
           </div>
+
+          {/* TOOL 2: ACTIVE LEARNING MODULE */}
           <div
             onClick={() => {
               if (modules.length > 0) navigate(`/learning/${modules[0].id}`);
@@ -86,7 +79,7 @@ function Courses() {
           >
             <div className="relative z-10">
               <div className="text-3xl mb-6 bg-white/10 text-emerald-400 w-16 h-16 flex items-center justify-center rounded-2xl group-hover:scale-110 transition-transform duration-500">
-                <span role="img" aria-label="rocket"></span>
+                <span role="img" aria-label="rocket">🚀</span>
               </div>
               <h2 className="text-2xl font-bold mb-2">Next Lesson</h2>
               <p className="text-slate-400 mb-6">
@@ -98,9 +91,11 @@ function Courses() {
             </div>
           </div>
         </div>
+
+        {/* Bottom Section: All Assigned Modules List */}
         <section>
           <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">All Modules for {profile?.class_dept} {profile?.section}</h3>
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Syllabus for ECE A</h3>
             <div className="h-px flex-1 bg-slate-100 mx-6"></div>
             <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full">
               {modules.length} Available
@@ -139,7 +134,7 @@ function Courses() {
               ))
             ) : (
               <div className="col-span-full py-24 rounded-[3rem] border-2 border-dashed border-slate-200 text-center">
-                <p className="text-slate-400 font-medium">No learning modules have been published for {profile?.class_dept} {profile?.section} yet.</p>
+                <p className="text-slate-400 font-medium">No learning modules have been published for ECE A yet.</p>
               </div>
             )}
           </div>

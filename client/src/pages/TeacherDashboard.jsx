@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ModuleBuilder from './ModuleBuilder';
-import NotificationBell from '../components/NotificationBell';
 
 function TeacherDashboard() {
   const navigate = useNavigate();
@@ -12,12 +11,14 @@ function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
   const [allAllocations, setAllAllocations] = useState([]); // Store all teacher's class allocations
   
+  // Class Roster filtering states
   const [filterMode, setFilterMode] = useState('department'); // 'department' or 'subject'
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [selectedDeptSection, setSelectedDeptSection] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
   const [filteredStudents, setFilteredStudents] = useState([]);
   
+  // MCQ Test states
   const [tests, setTests] = useState([]);
   const [showCreateTest, setShowCreateTest] = useState(false);
   const [selectedTest, setSelectedTest] = useState(null); // For viewing test submissions
@@ -38,16 +39,10 @@ function TeacherDashboard() {
     correct: 'A'
   });
   
+  // Student progress modal
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentProgress, setStudentProgress] = useState(null);
   const [showProgressModal, setShowProgressModal] = useState(false);
-
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordSuccess, setPasswordSuccess] = useState('');
-  const [changingPassword, setChangingPassword] = useState(false);
 
   const token = localStorage.getItem('token');
   const authHeaders = useCallback(() => ({
@@ -55,6 +50,7 @@ function TeacherDashboard() {
     'Content-Type': 'application/json'
   }), [token]);
 
+  // Helper functions for filtering
   const getUniqueDepartments = useCallback(() => {
     const depts = [...new Set(allAllocations.map(a => a.department))];
     return depts.sort();
@@ -84,12 +80,14 @@ function TeacherDashboard() {
     return allocations;
   }, [allAllocations]);
 
+  // Update filtered students when selections change
   useEffect(() => {
     if (filterMode === 'department' && selectedDepartment && selectedDeptSection) {
       const students = getStudentsByDepartmentSection(selectedDepartment, selectedDeptSection);
       setFilteredStudents(students);
     } else if (filterMode === 'subject' && selectedSubject) {
       const allocations = getStudentsBySubject(selectedSubject);
+      // Flatten all students from all sections teaching this subject
       const allStudents = allocations.flatMap(a => 
         a.students.map(s => ({
           ...s,
@@ -104,14 +102,17 @@ function TeacherDashboard() {
     }
   }, [filterMode, selectedDepartment, selectedDeptSection, selectedSubject, getStudentsByDepartmentSection, getStudentsBySubject]);
 
+  // Get subject(s) for selected section
   const getSubjectForSection = useCallback((section) => {
     const allocations = allAllocations.filter(a => a.fullSection === section);
     if (allocations.length === 0) return null;
     
+    // Get unique subjects for this section
     const subjects = [...new Set(allocations.map(a => a.subject))];
     return subjects.join(', ');
   }, [allAllocations]);
 
+// In TeacherDashboard.jsx, ensure this part looks like this:
 const fetchTeacherProfile = useCallback(async () => {
   try {
     const res = await fetch('http://localhost:5000/api/teacher/me', { headers: authHeaders() });
@@ -127,6 +128,7 @@ const fetchTeacherProfile = useCallback(async () => {
     console.log("Teacher profile loaded:", data);
     setTeacherInfo(data);
     
+    // Fetch teacher's allocated students from new system
     const allocRes = await fetch('http://localhost:5000/api/teacher/my-students', {
       headers: authHeaders()
     });
@@ -135,6 +137,7 @@ const fetchTeacherProfile = useCallback(async () => {
       const allocData = await allocRes.json();
       console.log("Teacher allocations:", allocData);
       
+      // Group by subject and section
       const groupedAllocations = {};
       allocData.forEach(item => {
         const key = `${item.subject}|${item.class_dept} ${item.section}`;
@@ -147,6 +150,7 @@ const fetchTeacherProfile = useCallback(async () => {
             students: []
           };
         }
+        // Store with mapped field names for consistency
         groupedAllocations[key].students.push({
           id: item.student_id,
           name: item.student_name,
@@ -160,6 +164,7 @@ const fetchTeacherProfile = useCallback(async () => {
       console.log("Grouped allocations:", allocationsArray);
       setAllAllocations(allocationsArray);
       
+      // Extract unique sections for backward compatibility
       const sections = [...new Set(allocData.map(item => `${item.class_dept} ${item.section}`))];
       if (sections.length > 0) {
         setSelectedSection(sections[0]);
@@ -176,6 +181,7 @@ const fetchTeacherProfile = useCallback(async () => {
       if (!selectedSection || !teacherInfo) return;
 
       try {
+        // Fetch from new allocation system
         const res = await fetch('http://localhost:5000/api/teacher/my-students', { 
           headers: authHeaders() 
         });
@@ -184,6 +190,7 @@ const fetchTeacherProfile = useCallback(async () => {
         
         const data = await res.json();
         
+        // Filter by selected section and map to expected format
         const filteredStudents = data
           .filter(item => `${item.class_dept} ${item.section}` === selectedSection)
           .map(item => ({
@@ -215,6 +222,7 @@ const fetchTeacherProfile = useCallback(async () => {
     fetchStudents();
   }, [selectedSection, fetchStudents]);
   
+  // Fetch tests when Tests tab is active
   const fetchTests = useCallback(async () => {
     if (!selectedSection) return;
     try {
@@ -234,6 +242,7 @@ const fetchTeacherProfile = useCallback(async () => {
     }
   }, [activeTab, selectedSection, fetchTests]);
   
+  // Fetch test submissions for a specific test
   const fetchTestSubmissions = useCallback(async (testId) => {
     try {
       const res = await fetch(`http://localhost:5000/api/teacher/test/${testId}/submissions`, {
@@ -247,16 +256,19 @@ const fetchTeacherProfile = useCallback(async () => {
     }
   }, [authHeaders]);
   
+  // View test submissions
   const handleViewTestSubmissions = async (test) => {
     setSelectedTest(test);
     await fetchTestSubmissions(test.test_id);
   };
   
+  // Close test submissions view
   const handleCloseTestView = () => {
     setSelectedTest(null);
     setTestSubmissions([]);
   };
   
+  // Add question to list
   const handleAddQuestion = () => {
     if (!currentQuestion.question || !currentQuestion.a || !currentQuestion.b || !currentQuestion.c || !currentQuestion.d) {
       alert("Please fill all question fields");
@@ -266,6 +278,7 @@ const fetchTeacherProfile = useCallback(async () => {
     setCurrentQuestion({ question: '', a: '', b: '', c: '', d: '', correct: 'A' });
   };
   
+  // Handle CSV Upload
   const handleCSVUpload = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -276,6 +289,7 @@ const fetchTeacherProfile = useCallback(async () => {
         const text = e.target.result;
         const lines = text.split('\n').filter(line => line.trim());
         
+        // Skip header row if it exists
         const startIndex = lines[0].toLowerCase().includes('question') ? 1 : 0;
         
         const parsedQuestions = [];
@@ -283,6 +297,7 @@ const fetchTeacherProfile = useCallback(async () => {
           const line = lines[i].trim();
           if (!line) continue;
           
+          // Parse CSV line (handle commas in quotes)
           const values = line.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g).map(val => 
             val.replace(/^"|"$/g, '').trim()
           );
@@ -314,6 +329,7 @@ const fetchTeacherProfile = useCallback(async () => {
     event.target.value = ''; // Reset input
   };
   
+  // Create test
   const handleCreateTest = async () => {
     if (!testForm.title || !testForm.start_date || !testForm.deadline || questions.length < 15) {
       alert("Please fill all fields and add at least 15 questions");
@@ -347,13 +363,16 @@ const fetchTeacherProfile = useCallback(async () => {
     }
   };
   
+  // View student progress
   const viewStudentProgress = async (student) => {
     try {
+      // Fetch test progress
       const res = await fetch(`http://localhost:5000/api/teacher/student/${student.id}/progress`, {
         headers: authHeaders()
       });
       const testData = await res.json();
       
+      // Fetch module progress
       const moduleRes = await fetch(`http://localhost:5000/api/teacher/student/${student.id}/module-progress`, {
         headers: authHeaders()
       });
@@ -370,46 +389,6 @@ const fetchTeacherProfile = useCallback(async () => {
     }
   };
 
-  const handlePasswordChange = async (e) => {
-    e.preventDefault();
-    setPasswordError('');
-    setPasswordSuccess('');
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError('New passwords do not match');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setPasswordError('New password must be at least 6 characters');
-      return;
-    }
-
-    setChangingPassword(true);
-    try {
-      const res = await fetch('http://localhost:5000/api/teacher/change-password', {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ currentPassword, newPassword })
-      });
-
-      const data = await res.json();
-      
-      if (!res.ok) {
-        setPasswordError(data.error || 'Failed to change password');
-      } else {
-        setPasswordSuccess('Password changed successfully');
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-      }
-    } catch (err) {
-      setPasswordError('Network error. Please try again.');
-    } finally {
-      setChangingPassword(false);
-    }
-  };
-
   if (loading) {
     console.log("TeacherDashboard: Loading...");
     return <div className="h-screen flex items-center justify-center bg-slate-900 text-emerald-400 font-black">Establishing Secure Connection...</div>;
@@ -421,7 +400,7 @@ const fetchTeacherProfile = useCallback(async () => {
     console.log("TeacherDashboard: No teacher info, showing error screen");
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white">
-        <div className="text-6xl mb-4 font-black text-red-500">!</div>
+        <div className="text-6xl mb-4">⚠️</div>
         <h2 className="text-2xl font-black text-emerald-400 mb-4">Failed to Load Profile</h2>
         <p className="text-slate-400 mb-6">Unable to fetch teacher information</p>
         <button 
@@ -440,14 +419,14 @@ const fetchTeacherProfile = useCallback(async () => {
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
+      {/* SIDEBAR */}
       <aside className="w-80 bg-slate-900 text-white p-8 flex flex-col shadow-2xl z-10">
         <h2 className="text-3xl font-black text-emerald-400 italic mb-12">TEACHER<span className="text-white">DASH</span></h2>
         <nav className="flex-1 space-y-3">
           {[
-            { id: 'students', label: 'Class Roster', icon: 'CR' }, 
-            { id: 'modules', label: 'Module Builder', icon: 'MB' },
-            { id: 'tests', label: 'MCQ Tests', icon: 'MT' },
-            { id: 'settings', label: 'Settings', icon: 'ST' }
+            { id: 'students', label: 'Class Roster', icon: '👥' }, 
+            { id: 'modules', label: 'Module Builder', icon: '🛠️' },
+            { id: 'tests', label: 'MCQ Tests', icon: '📝' }
           ].map(item => (
             <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full text-left p-5 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-4 ${activeTab === item.id ? 'bg-emerald-600' : 'hover:bg-white/5 text-slate-500'}`}>
               <span>{item.icon}</span> {item.label}
@@ -456,6 +435,8 @@ const fetchTeacherProfile = useCallback(async () => {
         </nav>
         <button onClick={() => navigate('/')} className="p-5 rounded-2xl bg-red-500/10 text-red-500 font-black uppercase text-[10px]">Logout</button>
       </aside>
+
+      {/* MAIN CONTENT */}
       <main className="flex-1 p-14 overflow-y-auto">
         <header className="flex justify-between items-center mb-16">
           <div>
@@ -474,17 +455,14 @@ const fetchTeacherProfile = useCallback(async () => {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <NotificationBell />
-            <div className="flex gap-3 bg-white p-3 rounded-full shadow-xl">
-              {teacherInfo?.allocated_sections && Array.isArray(teacherInfo.allocated_sections) && teacherInfo.allocated_sections.length > 0 ? (
-                teacherInfo.allocated_sections.map(sec => (
-                  <button key={sec} onClick={() => setSelectedSection(sec)} className={`px-8 py-3 rounded-full text-[10px] font-black uppercase transition-all ${selectedSection === sec ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>{sec}</button>
-                ))
-              ) : (
-                <p className="text-xs text-slate-400 px-4">No sections allocated</p>
-              )}
-            </div>
+          <div className="flex gap-3 bg-white p-3 rounded-full shadow-xl">
+            {teacherInfo?.allocated_sections && Array.isArray(teacherInfo.allocated_sections) && teacherInfo.allocated_sections.length > 0 ? (
+              teacherInfo.allocated_sections.map(sec => (
+                <button key={sec} onClick={() => setSelectedSection(sec)} className={`px-8 py-3 rounded-full text-[10px] font-black uppercase transition-all ${selectedSection === sec ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>{sec}</button>
+              ))
+            ) : (
+              <p className="text-xs text-slate-400 px-4">No sections allocated</p>
+            )}
           </div>
         </header>
 
@@ -520,7 +498,7 @@ const fetchTeacherProfile = useCallback(async () => {
 
                 {testSubmissions.length === 0 ? (
                   <div className="text-center py-24 bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
-                    <div className="text-6xl mb-4 font-black text-slate-300">--</div>
+                    <div className="text-6xl mb-4">📝</div>
                     <p className="text-slate-400 font-medium mb-2">No submissions yet</p>
                     <p className="text-xs text-slate-500">Students haven't taken this test</p>
                   </div>
@@ -578,6 +556,8 @@ const fetchTeacherProfile = useCallback(async () => {
                         </tbody>
                       </table>
                     </div>
+                    
+                    {/* Summary Statistics */}
                     <div className="border-t bg-slate-50 p-6">
                       <div className="grid grid-cols-4 gap-4">
                         <div className="text-center">
@@ -603,6 +583,7 @@ const fetchTeacherProfile = useCallback(async () => {
                         <div className="text-center">
                           <p className="text-xs text-slate-500 font-bold uppercase mb-1">Completion Rate</p>
                           <p className="text-2xl font-black text-slate-700">
+                            {/* This would need total students in section to calculate properly */}
                             {testSubmissions.length}
                           </p>
                         </div>
@@ -687,7 +668,7 @@ const fetchTeacherProfile = useCallback(async () => {
                             onClick={() => handleViewTestSubmissions(test)}
                             className="w-full mt-6 bg-emerald-600 text-white py-3 rounded-xl font-black uppercase text-xs hover:bg-emerald-700 transition-all"
                           >
-                             View Student Submissions
+                            👥 View Student Submissions
                           </button>
                         </div>
                       ))}
@@ -714,6 +695,8 @@ const fetchTeacherProfile = useCallback(async () => {
                     </div>
                   </div>
                 </div>
+                
+                {/* CSV Upload Section */}
                 <div className="border-t pt-8 mb-8">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-black">Add Questions ({questions.length}/20)</h3>
@@ -721,7 +704,7 @@ const fetchTeacherProfile = useCallback(async () => {
                       onClick={() => document.getElementById('csv-upload').click()}
                       className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold text-xs hover:bg-blue-700 flex items-center gap-2"
                     >
-                       Upload CSV
+                      📄 Upload CSV
                     </button>
                     <input
                       id="csv-upload"
@@ -731,6 +714,8 @@ const fetchTeacherProfile = useCallback(async () => {
                       onChange={handleCSVUpload}
                     />
                   </div>
+                  
+                  {/* CSV Format Help */}
                   <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
                     <p className="text-xs font-bold text-blue-800 mb-2">CSV Format:</p>
                     <code className="text-xs text-blue-700 block">
@@ -778,12 +763,12 @@ const fetchTeacherProfile = useCallback(async () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="text-xs text-emerald-600 font-black">Ans: {q.correct}</span>
+                            <span className="text-xs text-emerald-600 font-black">✓ {q.correct}</span>
                             <button
                               onClick={() => setQuestions(questions.filter((_, idx) => idx !== i))}
                               className="text-red-600 hover:text-red-700 font-bold"
                             >
-                              
+                              ✕
                             </button>
                           </div>
                         </div>
@@ -801,14 +786,16 @@ const fetchTeacherProfile = useCallback(async () => {
           </div>
         ) : (
           <div>
+            {/* Class Roster - Filtering Interface */}
             {allAllocations.length === 0 ? (
               <div className="text-center py-24 bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
-                <div className="text-6xl mb-4 font-black text-slate-300">--</div>
+                <div className="text-6xl mb-4">📚</div>
                 <p className="text-slate-400 font-medium mb-2">No classes allocated yet</p>
                 <p className="text-xs text-slate-500">Contact admin to assign students to your classes</p>
               </div>
             ) : (
               <div>
+                {/* Filter Mode Selection */}
                 <div className="mb-8 bg-white p-6 rounded-[2rem] shadow-lg border-2 border-slate-100">
                   <h3 className="text-sm font-black text-slate-600 uppercase mb-4">Filter By:</h3>
                   <div className="flex gap-4">
@@ -825,7 +812,7 @@ const fetchTeacherProfile = useCallback(async () => {
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      Department & Section
+                      🏛️ Department & Section
                     </button>
                     <button
                       onClick={() => {
@@ -840,12 +827,15 @@ const fetchTeacherProfile = useCallback(async () => {
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      Subject
+                      📚 Subject
                     </button>
                   </div>
                 </div>
+
+                {/* Department-based Filtering */}
                 {filterMode === 'department' && (
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    {/* Step 1: Select Department */}
                     <div className="bg-white p-6 rounded-[2rem] shadow-lg border-2 border-slate-100">
                       <h3 className="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">
                         1. Select Department
@@ -869,6 +859,8 @@ const fetchTeacherProfile = useCallback(async () => {
                         ))}
                       </div>
                     </div>
+
+                    {/* Step 2: Select Section */}
                     <div className="bg-white p-6 rounded-[2rem] shadow-lg border-2 border-slate-100">
                       <h3 className="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">
                         2. Select Section
@@ -895,6 +887,8 @@ const fetchTeacherProfile = useCallback(async () => {
                         </div>
                       )}
                     </div>
+
+                    {/* Step 3: Summary */}
                     <div className="bg-white p-6 rounded-[2rem] shadow-lg border-2 border-slate-100">
                       <h3 className="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">
                         3. Summary
@@ -922,8 +916,11 @@ const fetchTeacherProfile = useCallback(async () => {
                     </div>
                   </div>
                 )}
+
+                {/* Subject-based Filtering */}
                 {filterMode === 'subject' && (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    {/* Step 1: Select Subject */}
                     <div className="bg-white p-6 rounded-[2rem] shadow-lg border-2 border-slate-100">
                       <h3 className="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">
                         1. Select Subject
@@ -944,6 +941,8 @@ const fetchTeacherProfile = useCallback(async () => {
                         ))}
                       </div>
                     </div>
+
+                    {/* Step 2: Summary */}
                     <div className="bg-white p-6 rounded-[2rem] shadow-lg border-2 border-slate-100">
                       <h3 className="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">
                         2. Classes Teaching This Subject
@@ -978,6 +977,8 @@ const fetchTeacherProfile = useCallback(async () => {
                     </div>
                   </div>
                 )}
+
+                {/* Student List Display */}
                 {filteredStudents.length > 0 && (
                   <div className="bg-white p-8 rounded-[2rem] shadow-lg border-2 border-slate-100">
                     <div className="flex items-center justify-between mb-6">
@@ -1031,15 +1032,19 @@ const fetchTeacherProfile = useCallback(async () => {
                 )}
               </div>
             )}
+            
+            {/* Student Progress Modal */}
             {showProgressModal && studentProgress && selectedStudent && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-8" onClick={() => setShowProgressModal(false)}>
                 <div className="bg-white rounded-[3rem] p-10 max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                   <h2 className="text-3xl font-black mb-2">{selectedStudent.name}</h2>
                   <p className="text-slate-400 mb-8">{selectedStudent.reg_no}</p>
+                  
+                  {/* Module Progress Section */}
                   {studentProgress.moduleProgress && (
                     <div className="mb-8 p-6 bg-purple-50 rounded-2xl border-2 border-purple-200">
                       <h3 className="font-black text-purple-800 mb-4 flex items-center gap-2">
-                        Module Progress
+                        📚 Module Progress
                       </h3>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="bg-white p-4 rounded-xl text-center">
@@ -1063,7 +1068,9 @@ const fetchTeacherProfile = useCallback(async () => {
                       </div>
                     </div>
                   )}
-                  <h3 className="font-black mb-4 flex items-center gap-2">Test Performance</h3>
+                  
+                  {/* Test Progress Section */}
+                  <h3 className="font-black mb-4 flex items-center gap-2">📝 Test Performance</h3>
                   <div className="grid grid-cols-4 gap-4 mb-8">
                     <div className="bg-emerald-50 p-6 rounded-2xl text-center">
                       <p className="text-3xl font-black text-emerald-600">{studentProgress.student?.tests_completed || 0}</p>
@@ -1117,73 +1124,6 @@ const fetchTeacherProfile = useCallback(async () => {
                 </div>
               </div>
             )}
-          </div>
-        )}
-        {activeTab === 'settings' && (
-          <div className="max-w-2xl">
-            <div className="bg-white border border-slate-100 p-10 rounded-[3rem] shadow-sm">
-              <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-8">Security Settings</h2>
-              
-              <form onSubmit={handlePasswordChange} className="space-y-6">
-                <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Change Password</h3>
-                
-                {passwordError && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm font-medium">
-                    {passwordError}
-                  </div>
-                )}
-                {passwordSuccess && (
-                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-600 text-sm font-medium">
-                    {passwordSuccess}
-                  </div>
-                )}
-                
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Current Password</label>
-                  <input
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm"
-                    placeholder="Enter current password"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">New Password</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm"
-                    placeholder="Enter new password (min 6 characters)"
-                    required
-                    minLength={6}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Confirm New Password</label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm"
-                    placeholder="Confirm new password"
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={changingPassword}
-                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold rounded-xl transition-colors uppercase tracking-wider text-xs"
-                >
-                  {changingPassword ? 'Changing Password...' : 'Update Password'}
-                </button>
-              </form>
-            </div>
           </div>
         )}
       </main>

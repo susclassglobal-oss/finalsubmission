@@ -4,12 +4,14 @@ function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('student'); // 'student', 'teacher', 'manage-students', 'manage-teachers', 'allocation'
   const [loading, setLoading] = useState(false);
   
+  // States for Allocation
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [allocationSubject, setAllocationSubject] = useState("");
 
+  // States for Registration
   const [studentData, setStudentData] = useState({ 
     name: '', email: '', password: '', reg_no: '', class_dept: '', section: '' 
   });
@@ -17,12 +19,9 @@ function AdminDashboard() {
     name: '', email: '', password: '', staff_id: '', dept: '' 
   });
   
+  // States for Editing
   const [editingStudent, setEditingStudent] = useState(null);
   const [editingTeacher, setEditingTeacher] = useState(null);
-  
-  const [resetPasswordModal, setResetPasswordModal] = useState({ show: false, type: '', id: null, name: '' });
-  const [newPassword, setNewPassword] = useState('');
-  const [passwordResetLoading, setPasswordResetLoading] = useState(false);
   
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -30,6 +29,7 @@ function AdminDashboard() {
   const token = localStorage.getItem('token');
   const authHeaders = { 'Authorization': `Bearer ${token}` };
 
+  // Load data based on active tab
   useEffect(() => {
     if (activeTab === 'allocation') {
       fetchTeachers();
@@ -80,7 +80,7 @@ function AdminDashboard() {
       const data = await res.json();
       
       if (res.ok) {
-        alert("Allocation Saved!");
+        alert("✓ Allocation Saved!");
         setSelectedStudents([]);
         setAllocationSubject("");
       } else {
@@ -97,11 +97,12 @@ function AdminDashboard() {
     e.preventDefault();
     setLoading(true);
     try {
+      // Validate email format before sending
       const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
       const emailToCheck = activeTab === 'student' ? studentData.email : teacherData.email;
       
       if (!emailRegex.test(emailToCheck)) {
-        alert("Invalid email format! Please enter a complete email address (e.g., user@example.com)");
+        alert("❌ Invalid email format! Please enter a complete email address (e.g., user@example.com)");
         setLoading(false);
         return;
       }
@@ -140,7 +141,7 @@ function AdminDashboard() {
       });
 
       if (response.ok) {
-        alert(`${activeTab.toUpperCase()} registered successfully!`);
+        alert(`✓ ${activeTab.toUpperCase()} registered successfully!`);
         setPreview(null);
         setSelectedFile(null);
         e.target.reset();
@@ -151,10 +152,10 @@ function AdminDashboard() {
         }
       } else {
         const errData = await response.json();
-        alert(`Error: ${errData.error || 'Registration failed'}`);
+        alert(`❌ Error: ${errData.error || 'Registration failed'}`);
       }
     } catch (err) { 
-      alert(`Error saving data: ${err.message || 'Please check all fields and try again'}`);
+      alert(`❌ Error saving data: ${err.message || 'Please check all fields and try again'}`);
       console.error("Registration Error:", err);
     } finally { 
       setLoading(false); 
@@ -177,7 +178,7 @@ function AdminDashboard() {
       });
       
       if (res.ok) {
-        alert("Teacher Updated!");
+        alert("✓ Teacher Updated!");
         fetchTeachers();
       }
     } catch (err) {
@@ -195,7 +196,7 @@ function AdminDashboard() {
       });
       
       if (res.ok) {
-        alert("Teacher Deleted!");
+        alert("✓ Teacher Deleted!");
         fetchTeachers();
       }
     } catch (err) {
@@ -220,7 +221,7 @@ function AdminDashboard() {
       });
       
       if (res.ok) {
-        alert("Student Updated!");
+        alert("✓ Student Updated!");
         fetchStudents();
       }
     } catch (err) {
@@ -238,49 +239,11 @@ function AdminDashboard() {
       });
       
       if (res.ok) {
-        alert("Student Deleted!");
+        alert("✓ Student Deleted!");
         fetchStudents();
       }
     } catch (err) {
       alert("Failed to delete student");
-    }
-  };
-
-  const handlePasswordReset = async () => {
-    if (newPassword.length < 6) {
-      alert("Password must be at least 6 characters");
-      return;
-    }
-
-    setPasswordResetLoading(true);
-    try {
-      const endpoint = resetPasswordModal.type === 'student' 
-        ? 'http://localhost:5000/api/admin/reset-student-password'
-        : 'http://localhost:5000/api/admin/reset-teacher-password';
-      
-      const body = resetPasswordModal.type === 'student'
-        ? { studentId: resetPasswordModal.id, newPassword }
-        : { teacherId: resetPasswordModal.id, newPassword };
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify(body)
-      });
-
-      const data = await res.json();
-      
-      if (res.ok) {
-        alert(`Password reset successfully for ${resetPasswordModal.name}`);
-        setResetPasswordModal({ show: false, type: '', id: null, name: '' });
-        setNewPassword('');
-      } else {
-        alert(data.error || 'Failed to reset password');
-      }
-    } catch (err) {
-      alert('Network error. Please try again.');
-    } finally {
-      setPasswordResetLoading(false);
     }
   };
 
@@ -294,6 +257,7 @@ function AdminDashboard() {
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
+      {/* SIDEBAR */}
       <div className="w-72 bg-slate-900 text-white p-8">
         <h2 className="text-2xl font-black mb-10 text-emerald-400 italic">ADMIN PANEL</h2>
         <nav className="space-y-2">
@@ -307,6 +271,8 @@ function AdminDashboard() {
           <button onClick={() => setActiveTab('allocation')} className={`w-full text-left p-4 rounded-xl font-bold uppercase text-xs transition-all ${activeTab === 'allocation' ? 'bg-emerald-600 shadow-lg' : 'text-slate-400 hover:text-white'}`}>Allocations</button>
         </nav>
       </div>
+
+      {/* MAIN CONTENT */}
       <div className="flex-1 p-12">
         {activeTab === 'manage-students' ? (
           <div className="max-w-7xl">
@@ -333,10 +299,9 @@ function AdminDashboard() {
                         <td className="p-4 text-sm font-bold">{student.class_dept}</td>
                         <td className="p-4 text-sm font-bold">{student.section}</td>
                         <td className="p-4">
-                          <div className="flex gap-2 justify-center flex-wrap">
-                            <button onClick={() => handleUpdateStudent(student)} className="bg-blue-100 text-blue-600 px-3 py-2 rounded-lg text-xs font-black uppercase hover:bg-blue-200">Edit</button>
-                            <button onClick={() => setResetPasswordModal({ show: true, type: 'student', id: student.id, name: student.name })} className="bg-amber-100 text-amber-600 px-3 py-2 rounded-lg text-xs font-black uppercase hover:bg-amber-200">Reset PW</button>
-                            <button onClick={() => handleDeleteStudent(student.id)} className="bg-red-100 text-red-600 px-3 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-200">Delete</button>
+                          <div className="flex gap-2 justify-center">
+                            <button onClick={() => handleUpdateStudent(student)} className="bg-blue-100 text-blue-600 px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-blue-200">Edit</button>
+                            <button onClick={() => handleDeleteStudent(student.id)} className="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-200">Delete</button>
                           </div>
                         </td>
                       </tr>
@@ -369,10 +334,9 @@ function AdminDashboard() {
                         <td className="p-4 text-sm text-slate-600">{teacher.email}</td>
                         <td className="p-4 text-sm font-bold">{teacher.dept}</td>
                         <td className="p-4">
-                          <div className="flex gap-2 justify-center flex-wrap">
-                            <button onClick={() => handleUpdateTeacher(teacher)} className="bg-blue-100 text-blue-600 px-3 py-2 rounded-lg text-xs font-black uppercase hover:bg-blue-200">Edit</button>
-                            <button onClick={() => setResetPasswordModal({ show: true, type: 'teacher', id: teacher.id, name: teacher.name })} className="bg-amber-100 text-amber-600 px-3 py-2 rounded-lg text-xs font-black uppercase hover:bg-amber-200">Reset PW</button>
-                            <button onClick={() => handleDeleteTeacher(teacher.id)} className="bg-red-100 text-red-600 px-3 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-200">Delete</button>
+                          <div className="flex gap-2 justify-center">
+                            <button onClick={() => handleUpdateTeacher(teacher)} className="bg-blue-100 text-blue-600 px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-blue-200">Edit</button>
+                            <button onClick={() => handleDeleteTeacher(teacher.id)} className="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-200">Delete</button>
                           </div>
                         </td>
                       </tr>
@@ -386,6 +350,7 @@ function AdminDashboard() {
           <div className="max-w-7xl">
             <h1 className="text-3xl font-black text-slate-800 uppercase mb-8 italic">Teacher-Student <span className="text-emerald-600">Allocation</span></h1>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Select Teacher */}
               <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
                 <h3 className="text-xs font-black text-slate-400 uppercase mb-6 tracking-widest">1. Select Teacher</h3>
                 <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
@@ -398,6 +363,8 @@ function AdminDashboard() {
                   ))}
                 </div>
               </div>
+
+              {/* Select Students */}
               <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
                 <h3 className="text-xs font-black text-slate-400 uppercase mb-6 tracking-widest">2. Select Students</h3>
                 <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
@@ -410,6 +377,8 @@ function AdminDashboard() {
                   ))}
                 </div>
               </div>
+
+              {/* Confirm Allocation */}
               <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
                 <h3 className="text-xs font-black text-slate-400 uppercase mb-6 tracking-widest">3. Confirm</h3>
                 {selectedTeacher ? (
@@ -452,6 +421,7 @@ function AdminDashboard() {
           <div>
             <h1 className="text-3xl font-black text-slate-800 uppercase mb-8 italic">New <span className="text-emerald-600">{activeTab}</span></h1>
             <form onSubmit={handleRegister} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Identity */}
               <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-4">
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Identity</h3>
                 <input type="text" placeholder="Full Name" required className="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none" 
@@ -469,6 +439,8 @@ function AdminDashboard() {
                 <input type="password" placeholder="Password" required className="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none" 
                   onChange={e => activeTab === 'student' ? setStudentData({...studentData, password: e.target.value}) : setTeacherData({...teacherData, password: e.target.value})} />
               </div>
+
+              {/* Details */}
               <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-4">
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Contact & Dept</h3>
                 <input type="email" placeholder="Email" required className="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none" 
@@ -477,6 +449,8 @@ function AdminDashboard() {
                 <input type="text" placeholder={activeTab === 'student' ? "Class/Department" : "Department"} required className="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none" 
                   onChange={e => activeTab === 'student' ? setStudentData({...studentData, class_dept: e.target.value}) : setTeacherData({...teacherData, dept: e.target.value})} />
               </div>
+
+              {/* Media */}
               <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col justify-between">
                 <div className="relative h-64 w-full rounded-3xl bg-slate-50 border-4 border-dashed border-slate-200 flex items-center justify-center overflow-hidden hover:border-emerald-400">
                   {preview ? <img src={preview} className="h-full w-full object-cover" alt="preview" /> : <span className="text-xs font-black text-slate-400 uppercase">Profile Photo</span>}
@@ -493,49 +467,6 @@ function AdminDashboard() {
           </div>
         )}
       </div>
-      {resetPasswordModal.show && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl">
-            <h2 className="text-xl font-black text-slate-900 uppercase mb-2">Reset Password</h2>
-            <p className="text-slate-500 text-sm mb-6">
-              Set a new password for <span className="font-bold text-slate-800">{resetPasswordModal.name}</span>
-            </p>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">New Password</label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm"
-                  placeholder="Enter new password (min 6 characters)"
-                  minLength={6}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => {
-                    setResetPasswordModal({ show: false, type: '', id: null, name: '' });
-                    setNewPassword('');
-                  }}
-                  className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors uppercase tracking-wider text-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handlePasswordReset}
-                  disabled={passwordResetLoading || newPassword.length < 6}
-                  className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold rounded-xl transition-colors uppercase tracking-wider text-xs"
-                >
-                  {passwordResetLoading ? 'Resetting...' : 'Reset Password'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

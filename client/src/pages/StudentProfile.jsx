@@ -7,20 +7,13 @@ export default function StudentProfile() {
   const [progress, setProgress] = useState(null);
   const [moduleProgress, setModuleProgress] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordSuccess, setPasswordSuccess] = useState('');
-  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem('token');
         
+        // Fetch student profile
         const profileRes = await fetch('http://localhost:5000/api/student/profile', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -29,6 +22,7 @@ export default function StudentProfile() {
         const profileData = await profileRes.json();
         setStudent(profileData);
         
+        // Fetch test progress
         const progressRes = await fetch('http://localhost:5000/api/student/progress', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -38,6 +32,7 @@ export default function StudentProfile() {
           setProgress(progressData);
         }
         
+        // Fetch module progress
         const moduleRes = await fetch('http://localhost:5000/api/student/module-progress', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -61,56 +56,9 @@ export default function StudentProfile() {
     </div>
   );
 
-  const handlePasswordChange = async (e) => {
-    e.preventDefault();
-    setPasswordError('');
-    setPasswordSuccess('');
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError('New passwords do not match');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setPasswordError('New password must be at least 6 characters');
-      return;
-    }
-
-    setChangingPassword(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/student/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ currentPassword, newPassword })
-      });
-
-      const data = await res.json();
-      
-      if (!res.ok) {
-        setPasswordError(data.error || 'Failed to change password');
-      } else {
-        setPasswordSuccess('Password changed successfully');
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-        setTimeout(() => {
-          setShowPasswordForm(false);
-          setPasswordSuccess('');
-        }, 2000);
-      }
-    } catch (err) {
-      setPasswordError('Network error. Please try again.');
-    } finally {
-      setChangingPassword(false);
-    }
-  };
-
   if (!student) return <div className="p-10 text-red-500">Error: Please log in again.</div>;
 
+  // Calculate Progress Percentage for the UI
   const testsCompleted = progress?.tests_completed || 0;
   const totalTests = progress?.total_tests_assigned || 0;
   const progressPercent = totalTests > 0 ? (testsCompleted / totalTests) * 100 : 0;
@@ -118,9 +66,13 @@ export default function StudentProfile() {
   return (
     <div className="min-h-screen bg-[#fdfdfd] font-sans text-slate-800 p-8 lg:p-12">
       <div className="max-w-4xl mx-auto">
+        
+        {/* TOP NAV */}
         <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-slate-400 hover:text-emerald-600 font-bold transition-colors mb-12 text-xs uppercase tracking-widest">
           ← Back to Dashboard
         </button>
+
+        {/* PROGRESS TRACKER SECTION */}
         <div className="mb-12 bg-white border border-slate-100 p-10 rounded-[2.5rem] shadow-sm">
           <div className="flex justify-between items-end mb-6">
             <div>
@@ -137,6 +89,8 @@ export default function StudentProfile() {
               style={{ width: `${progressPercent}%` }}
             ></div>
           </div>
+          
+          {/* Stats Grid */}
           <div className="grid grid-cols-3 gap-4 mt-8">
             <div className="bg-emerald-50 p-6 rounded-2xl text-center">
               <p className="text-3xl font-black text-emerald-600">{testsCompleted}</p>
@@ -152,6 +106,8 @@ export default function StudentProfile() {
             </div>
           </div>
         </div>
+
+        {/* MODULE PROGRESS SECTION */}
         {moduleProgress && (
           <div className="mb-12 bg-white border border-slate-100 p-10 rounded-[2.5rem] shadow-sm">
             <div className="flex justify-between items-end mb-6">
@@ -169,6 +125,8 @@ export default function StudentProfile() {
                 style={{ width: `${moduleProgress.completion_percentage || 0}%` }}
               ></div>
             </div>
+            
+            {/* Module Stats Grid */}
             <div className="grid grid-cols-3 gap-4 mt-8">
               <div className="bg-purple-50 p-6 rounded-2xl text-center">
                 <p className="text-3xl font-black text-purple-600">{moduleProgress.completed_modules || 0}</p>
@@ -187,8 +145,11 @@ export default function StudentProfile() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-16">
+          
+          {/* LEFT: AVATAR & DATABASE INFO */}
           <div className="md:col-span-1 space-y-8">
             <div className="text-center md:text-left">
+              {/* Profile Image with fallback */}
               <div className="w-40 h-40 rounded-[3rem] flex items-center justify-center overflow-hidden mx-auto md:mx-0 mb-6 shadow-2xl border-4 border-white">
                 {student.profilePic ? (
                   <img src={student.profilePic} alt="Profile" className="w-full h-full object-cover" />
@@ -209,6 +170,8 @@ export default function StudentProfile() {
           
             </div>
           </div>
+
+          {/* RIGHT: ACCOUNT DETAILS */}
           <div className="md:col-span-2 space-y-10">
             <section className="bg-white border border-slate-100 p-10 rounded-[3rem] shadow-sm">
               <h2 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] mb-8 italic">Account Integrity</h2>
@@ -222,85 +185,6 @@ export default function StudentProfile() {
                   <p className="text-sm font-bold text-slate-800">{student.reg_no}</p>
                 </div>
               </div>
-            </section>
-            <section className="bg-white border border-slate-100 p-10 rounded-[3rem] shadow-sm">
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] italic">Security Settings</h2>
-                <button
-                  onClick={() => {
-                    setShowPasswordForm(!showPasswordForm);
-                    setPasswordError('');
-                    setPasswordSuccess('');
-                  }}
-                  className="text-xs font-bold text-emerald-600 hover:text-emerald-700 uppercase tracking-wider"
-                >
-                  {showPasswordForm ? 'Cancel' : 'Change Password'}
-                </button>
-              </div>
-
-              {showPasswordForm && (
-                <form onSubmit={handlePasswordChange} className="space-y-4">
-                  {passwordError && (
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm font-medium">
-                      {passwordError}
-                    </div>
-                  )}
-                  {passwordSuccess && (
-                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-600 text-sm font-medium">
-                      {passwordSuccess}
-                    </div>
-                  )}
-                  
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Current Password</label>
-                    <input
-                      type="password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm"
-                      placeholder="Enter current password"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">New Password</label>
-                    <input
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm"
-                      placeholder="Enter new password (min 6 characters)"
-                      required
-                      minLength={6}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Confirm New Password</label>
-                    <input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm"
-                      placeholder="Confirm new password"
-                      required
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={changingPassword}
-                    className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold rounded-xl transition-colors uppercase tracking-wider text-xs"
-                  >
-                    {changingPassword ? 'Changing Password...' : 'Update Password'}
-                  </button>
-                </form>
-              )}
-
-              {!showPasswordForm && (
-                <p className="text-slate-400 text-sm">Click "Change Password" to update your account password.</p>
-              )}
             </section>
           </div>
 

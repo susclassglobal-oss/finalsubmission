@@ -1,15 +1,31 @@
+// ============================================================
+// EMAIL NOTIFICATION SERVICE
+// ============================================================
+// Purpose: Send email notifications using Nodemailer
+// Features:
+//   - Template-based email generation
+//   - Batch email sending
+//   - Retry logic for failed emails
+//   - Email tracking and logging
+// ============================================================
 
 const nodemailer = require('nodemailer');
 const { Pool } = require('pg');
 
+// Database connection (reuse from main server or pass as parameter)
 let dbPool;
 
 const initializeNotificationService = (pool) => {
   dbPool = pool;
 };
 
+// ============================================================
+// SMTP CONFIGURATION
+// ============================================================
 
+// Create reusable transporter
 const createTransporter = () => {
+  // Use environment variables for SMTP configuration
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT) || 587,
@@ -24,10 +40,16 @@ const createTransporter = () => {
   });
 };
 
+// Resolve frontend base URL at runtime
+// Priority: FRONTEND_URL (manual override) -> RENDER_EXTERNAL_URL (Render default) -> localhost
 const FRONTEND_BASE = process.env.FRONTEND_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:5173';
 
+// ============================================================
+// EMAIL TEMPLATES
+// ============================================================
 
 const emailTemplates = {
+  // STUDENT TEMPLATES
   MODULE_PUBLISHED: (data) => ({
     subject: `New Module Available: ${data.topic_title}`,
     html: `
@@ -108,7 +130,7 @@ const emailTemplates = {
             <p style="color: #991b1b; margin: 5px 0; font-size: 18px; font-weight: bold;">Deadline: ${new Date(data.deadline).toLocaleString()}</p>
           </div>
           
-          <p style="color: #4b5563; line-height: 1.6;">${data.submitted ? ' You have already submitted this test.' : '️ You have not submitted this test yet. Complete it before the deadline!'}</p>
+          <p style="color: #4b5563; line-height: 1.6;">${data.submitted ? '✓ You have already submitted this test.' : '⚠️ You have not submitted this test yet. Complete it before the deadline!'}</p>
           
           ${!data.submitted ? `
             <a href="${FRONTEND_BASE}/test" 
@@ -163,6 +185,7 @@ const emailTemplates = {
     `
   }),
 
+  // TEACHER TEMPLATES
   TEST_SUBMITTED: (data) => ({
     subject: `Test Submission: ${data.student_name} - ${data.test_title}`,
     html: `
@@ -226,6 +249,7 @@ const emailTemplates = {
     `
   }),
 
+  // SYSTEM TEMPLATES
   ACCOUNT_CREATED: (data) => ({
     subject: `Welcome to Sustainable Classroom`,
     html: `
@@ -258,6 +282,9 @@ const emailTemplates = {
   })
 };
 
+// ============================================================
+// CORE NOTIFICATION FUNCTIONS
+// ============================================================
 
 /**
  * Send email notification
@@ -269,10 +296,12 @@ const emailTemplates = {
  */
 const sendEmail = async (eventCode, recipient, data, metadata = {}) => {
   try {
+    // Prevent test-triggered emails in production
     if (metadata && metadata.test && process.env.NODE_ENV === 'production') {
       console.log(`Test email suppressed in production (${eventCode} → ${recipient.email})`);
       return { success: false, reason: 'test_disabled_in_prod' };
     }
+    // Check if user has email notifications enabled for this event
     const prefResult = await dbPool.query(
       `SELECT email_enabled FROM notification_preferences 
        WHERE user_id = $1 AND user_type = $2 AND event_code = $3`,
@@ -284,6 +313,7 @@ const sendEmail = async (eventCode, recipient, data, metadata = {}) => {
       return { success: false, reason: 'disabled_by_user' };
     }
 
+    // Get email template
     const template = emailTemplates[eventCode];
     if (!template) {
       throw new Error(`No email template found for event: ${eventCode}`);
@@ -291,8 +321,10 @@ const sendEmail = async (eventCode, recipient, data, metadata = {}) => {
 
     const { subject, html } = template(data);
 
+    // Create transporter
     const transporter = createTransporter();
 
+    // Send email
     const info = await transporter.sendMail({
       from: `"Sustainable Classroom" <${process.env.SMTP_USER || process.env.ADMIN_EMAIL}>`,
       to: recipient.email,
@@ -300,6 +332,7 @@ const sendEmail = async (eventCode, recipient, data, metadata = {}) => {
       html: html
     });
 
+    // Log success
     await dbPool.query(
       `INSERT INTO notification_logs 
        (event_code, recipient_id, recipient_type, recipient_email, channel, status, subject, message, metadata, sent_at)
@@ -307,12 +340,13 @@ const sendEmail = async (eventCode, recipient, data, metadata = {}) => {
       [eventCode, recipient.id, recipient.type, recipient.email, 'email', 'sent', subject, html, JSON.stringify(metadata)]
     );
 
-    console.log(` Email sent to ${recipient.email} (${eventCode}): ${info.messageId}`);
+    console.log(`✓ Email sent to ${recipient.email} (${eventCode}): ${info.messageId}`);
     return { success: true, messageId: info.messageId };
 
   } catch (error) {
-    console.error(` Email send failed for ${recipient.email} (${eventCode}):`, error);
+    console.error(`✗ Email send failed for ${recipient.email} (${eventCode}):`, error);
 
+    // Log failure
     await dbPool.query(
       `INSERT INTO notification_logs 
        (event_code, recipient_id, recipient_type, recipient_email, channel, status, message, metadata, error_message)
@@ -340,6 +374,7 @@ const sendBatchEmails = async (eventCode, recipients, dataFactory, metadata = {}
     const result = await sendEmail(eventCode, recipient, data, metadata);
     results.push({ recipient, result });
     
+    // Small delay to avoid rate limiting
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   
@@ -408,99 +443,9 @@ const getTeacherById = async (teacherId) => {
   };
 };
 
-
-const inAppTemplates = {
-  MODULE_PUBLISHED: (data) => ({
-    title: 'New Module Available',
-    message: `"${data.topic_title}" has been published by ${data.teacher_name}`,
-    link: '/courses'
-  }),
-  TEST_ASSIGNED: (data) => ({
-    title: 'New Test Assigned',
-    message: `"${data.test_title}" - Due: ${new Date(data.deadline).toLocaleDateString()}`,
-    link: '/test'
-  }),
-  TEST_DEADLINE_24H: (data) => ({
-    title: 'Test Due Tomorrow',
-    message: `"${data.test_title}" deadline is in 24 hours!`,
-    link: '/test'
-  }),
-  GRADE_POSTED: (data) => ({
-    title: 'Grade Posted',
-    message: `You scored ${data.percentage}% on "${data.test_title}"`,
-    link: '/progress'
-  }),
-  TEST_SUBMITTED: (data) => ({
-    title: 'New Test Submission',
-    message: `${data.student_name} submitted "${data.test_title}" - ${data.percentage}%`,
-    link: '/teacher-dashboard'
-  }),
-  LOW_CLASS_PERFORMANCE: (data) => ({
-    title: 'Performance Alert',
-    message: `Class average on "${data.test_title}" is ${data.average_percentage}%`,
-    link: '/teacher-dashboard'
-  }),
-  MODULE_UPDATED: (data) => ({
-    title: 'Module Updated',
-    message: `"${data.topic_title}" has been updated`,
-    link: '/courses'
-  })
-};
-
-/**
- * Create in-app notification (bell notification)
- * @param {string} eventCode - Notification event code
- * @param {Object} recipient - {id, type}
- * @param {Object} data - Template data
- * @returns {Promise<Object>} - Created notification
- */
-const createInAppNotification = async (eventCode, recipient, data) => {
-  try {
-    if (eventCode === 'ACCOUNT_CREATED') {
-      return { success: false, reason: 'account_created_email_only' };
-    }
-    
-    const template = inAppTemplates[eventCode];
-    if (!template) {
-      console.log(`No in-app template for ${eventCode}, skipping`);
-      return { success: false, reason: 'no_template' };
-    }
-
-    const { title, message, link } = template(data);
-    
-    const result = await dbPool.query(
-      `INSERT INTO in_app_notifications (user_id, user_type, event_code, title, message, link, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, title, message, link, created_at`,
-      [recipient.id, recipient.type, eventCode, title, message, link, JSON.stringify(data)]
-    );
-
-    return { success: true, notification: result.rows[0] };
-  } catch (error) {
-    console.error(`Failed to create in-app notification:`, error);
-    return { success: false, error: error.message };
-  }
-};
-
-/**
- * Create in-app notifications for multiple recipients
- * @param {string} eventCode - Notification event code
- * @param {Array} recipients - Array of {id, type}
- * @param {Object|Function} dataFactory - Data or function to generate data
- * @returns {Promise<Array>} - Array of results
- */
-const createBatchInAppNotifications = async (eventCode, recipients, dataFactory) => {
-  const results = [];
-  
-  for (const recipient of recipients) {
-    const data = typeof dataFactory === 'function' ? dataFactory(recipient) : dataFactory;
-    const result = await createInAppNotification(eventCode, recipient, data);
-    results.push({ recipient, result });
-  }
-  
-  return results;
-};
-
+// ============================================================
+// EXPORTS
+// ============================================================
 
 module.exports = {
   initializeNotificationService,
@@ -508,7 +453,5 @@ module.exports = {
   sendBatchEmails,
   getStudentsInSection,
   getTeacherById,
-  emailTemplates,
-  createInAppNotification,
-  createBatchInAppNotifications
+  emailTemplates
 };

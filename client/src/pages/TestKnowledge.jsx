@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import NotificationBell from '../components/NotificationBell';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function TestKnowledge() {
   const navigate = useNavigate();
@@ -23,7 +20,7 @@ export default function TestKnowledge() {
   
   const fetchTests = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/student/tests`, {
+      const res = await fetch('http://localhost:5000/api/student/tests', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -37,7 +34,7 @@ export default function TestKnowledge() {
   
   const startTest = async (testId) => {
     try {
-      const res = await fetch(`${API_URL}/api/student/test/${testId}`, {
+      const res = await fetch(`http://localhost:5000/api/student/test/${testId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -61,7 +58,7 @@ export default function TestKnowledge() {
     const timeTaken = Math.floor((Date.now() - startTime) / 1000);
     
     try {
-      const res = await fetch(`${API_URL}/api/student/test/submit`, {
+      const res = await fetch('http://localhost:5000/api/student/test/submit', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -98,11 +95,12 @@ export default function TestKnowledge() {
     </div>
   );
   
+  // Show result screen
   if (showResult && result) {
     return (
       <div className="min-h-screen bg-[#fdfdfd] flex items-center justify-center p-6 font-sans">
         <div className="max-w-xl w-full text-center space-y-8">
-          <div className="text-6xl mb-6 font-black text-emerald-500">{result.percentage >= 60 ? 'A+' : 'TRY'}</div>
+          <div className="text-6xl mb-6">{result.percentage >= 60 ? '🎉' : '📚'}</div>
           <h1 className="text-3xl font-bold text-slate-900">
             {result.percentage >= 60 ? 'Great Job!' : 'Keep Learning!'}
           </h1>
@@ -112,7 +110,7 @@ export default function TestKnowledge() {
               You scored <span className="font-bold text-emerald-600">{result.score}</span> out of {currentTest?.total_questions || result.score}
             </p>
             <p className="text-sm text-slate-400">
-              {result.status === 'late' ? 'Submitted after deadline' : 'Submitted on time'}
+              {result.status === 'late' ? '⚠️ Submitted after deadline' : '✓ Submitted on time'}
             </p>
           </div>
           <div className="flex flex-col gap-3">
@@ -134,6 +132,7 @@ export default function TestKnowledge() {
     );
   }
   
+  // Taking test screen
   if (takingTest && currentTest) {
     return (
       <div className="min-h-screen bg-[#fdfdfd] p-8 lg:p-12 font-sans text-slate-800">
@@ -197,6 +196,7 @@ export default function TestKnowledge() {
     );
   }
 
+  // Main test list screen
   return (
     <div className="min-h-screen bg-[#fdfdfd] p-8 lg:p-12 font-sans text-slate-800">
       <div className="max-w-6xl mx-auto">
@@ -208,13 +208,12 @@ export default function TestKnowledge() {
           ← Back to Dashboard
         </button>
 
-        <header className="mb-12 flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Test Knowledge</h1>
-            <p className="text-slate-500 mt-2">Complete your assigned tests before the deadline.</p>
-          </div>
-          <NotificationBell />
+        <header className="mb-12">
+          <h1 className="text-3xl font-bold text-slate-900">Test Knowledge</h1>
+          <p className="text-slate-500 mt-2">Complete your assigned tests before the deadline.</p>
         </header>
+
+        {/* Pending Tests */}
         {pendingTests.length > 0 && (
           <section className="mb-12">
             <h2 className="text-sm font-black text-emerald-600 uppercase tracking-widest mb-6">Pending Tests</h2>
@@ -242,6 +241,8 @@ export default function TestKnowledge() {
             </div>
           </section>
         )}
+
+        {/* Overdue Tests */}
         {overdueTests.length > 0 && (
           <section className="mb-12">
             <h2 className="text-sm font-black text-red-600 uppercase tracking-widest mb-6">Overdue Tests</h2>
@@ -252,7 +253,7 @@ export default function TestKnowledge() {
                   <p className="text-sm text-slate-500 mb-4">{test.description}</p>
                   <div className="flex items-center justify-between mb-6">
                     <span className="text-xs text-red-600 font-black uppercase">
-                      OVERDUE
+                      ⚠️ Overdue
                     </span>
                     <span className="text-xs text-slate-400 font-bold">
                       Was due: {new Date(test.deadline).toLocaleDateString()}
@@ -269,6 +270,8 @@ export default function TestKnowledge() {
             </div>
           </section>
         )}
+
+        {/* Completed Tests */}
         {completedTests.length > 0 && (
           <section>
             <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">Completed Tests</h2>

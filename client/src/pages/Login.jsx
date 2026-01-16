@@ -11,12 +11,14 @@ function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // STEP 1: Handle Initial Login (Email/Password check + Trigger OTP)
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     const activeRole = role.toLowerCase();
     
+    // Admin goes to a separate endpoint, others go to universal login
     const endpoint = activeRole === 'admin' ? '/api/admin/login' : '/api/login';
 
     try {
@@ -32,8 +34,10 @@ function Login() {
       const data = await response.json();
 
       if (data.mfaRequired) {
+        // Correct password! Now show the OTP popup
         setShowOtp(true); 
       } else if (data.success) {
+        // Direct login (usually for Admin or if MFA is disabled)
         completeAuth(data, activeRole);
       } else {
         setError(data.message || "INVALID CREDENTIALS");
@@ -46,6 +50,7 @@ function Login() {
     }
   };
 
+  // STEP 2: Handle OTP Verification
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -66,6 +71,7 @@ function Login() {
       if (data.success) {
         completeAuth(data, role.toLowerCase());
       } else {
+        // Use alert or error state for invalid OTP
         setError(data.message || "Invalid OTP");
         setOtp(''); // Clear input on failure
       }
@@ -77,6 +83,7 @@ function Login() {
     }
   };
 
+  // Helper to save data and redirect
   const completeAuth = (data, activeRole) => {
     localStorage.setItem('token', data.token);
     localStorage.setItem('user_role', activeRole);
@@ -84,6 +91,7 @@ function Login() {
       localStorage.setItem('user_data', JSON.stringify(data.user));
     }
     
+    // Navigation Logic
     if (activeRole === 'admin') navigate('/admin-dashboard');
     else if (activeRole === 'teacher') navigate('/teacher-dashboard');
     else navigate('/dashboard');
@@ -91,7 +99,10 @@ function Login() {
 
   return (
     <div className="flex h-screen items-center justify-center bg-[#F8FAFC] font-sans relative">
+      {/* MAIN LOGIN CARD */}
       <div className="w-full max-w-md rounded-[2.5rem] bg-white p-12 shadow-2xl border border-slate-100">
+        
+        {/* Role Selector */}
         <div className="mb-10 flex rounded-2xl bg-slate-100/80 p-1.5 backdrop-blur-sm">
           {['admin', 'teacher', 'student'].map((r) => (
             <button 
@@ -111,7 +122,7 @@ function Login() {
           </h2>
           {error && (
             <div className="mt-6 p-3 bg-red-50 text-red-500 text-[10px] font-bold rounded-xl uppercase border border-red-100 animate-shake">
-              {error}
+              <span>⚠️</span> {error}
             </div>
           )}
         </div>
@@ -140,6 +151,8 @@ function Login() {
           </button>
         </form>
       </div>
+
+      {/* OTP POPUP OVERLAY */}
       {showOtp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md px-4">
           <div className="w-full max-w-sm rounded-[2.5rem] bg-white p-10 shadow-2xl border border-slate-100 text-center animate-in zoom-in duration-300">

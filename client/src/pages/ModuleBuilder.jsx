@@ -17,6 +17,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
   const [mcqData, setMcqData] = useState({ question: '', a: '', b: '', c: '', d: '', correct: 'A' });
   const [codeStarter, setCodeStarter] = useState("// Write your solution code here");
   
+  // Coding Problem States
   const [codingProblem, setCodingProblem] = useState({
     description: "",
     starterCode: {
@@ -31,6 +32,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
     memoryLimit: 256
   });
 
+  // Update targetSection when selectedSection changes
   useEffect(() => {
     if (selectedSection) setTargetSection(selectedSection);
   }, [selectedSection]);
@@ -46,6 +48,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
 
   useEffect(() => { fetchModules(); }, [fetchModules]);
 
+  // Handle video file upload to Cloudinary
   const handleVideoUpload = async (file) => {
     if (!file) return null;
     
@@ -87,15 +90,18 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
     
     if (contentType === 'video') {
       if (videoFile) {
+        // Upload video to Cloudinary
         const uploadedUrl = await handleVideoUpload(videoFile);
         if (!uploadedUrl) return;
         stepData = uploadedUrl;
       } else if (videoUrl) {
+        // Use provided URL
         stepData = videoUrl;
       } else {
         return alert("Please upload a video file or provide a URL");
       }
     } else if (contentType === 'coding') {
+      // Validate coding problem
       if (!codingProblem.description) return alert("Please add a problem description");
       if (codingProblem.testCases.length === 0) return alert("Please add at least one test case");
       if (codingProblem.testCases.some(tc => !tc.input || !tc.expected)) {
@@ -111,6 +117,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
     const newStep = { type: contentType, header: topicTitle, data: stepData, id: Date.now() };
     setModuleQueue([...moduleQueue, newStep]);
     
+    // Reset inputs but keep topic title if user wants to add more steps to same topic
     setTextData(""); 
     setVideoUrl(""); 
     setVideoFile(null);
@@ -154,8 +161,8 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
       });
       
       if (res.ok) {
-        alert(editingModuleId ? "Module Updated!" : "Module Published!");
-        setModuleQueue([]);
+        alert(editingModuleId ? "✓ Module Updated!" : "🚀 Module Published!");
+        setModuleQueue([]); 
         setIsBuilding(false); 
         setEditingModuleId(null);
         setTargetSection(selectedSection || "");
@@ -191,7 +198,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
       });
       
       if (res.ok) {
-        alert("Module Deleted!");
+        alert("✓ Module Deleted!");
         fetchModules();
       } else {
         alert("Failed to delete module");
@@ -238,10 +245,11 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
           <div className="lg:col-span-3 bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-50">
             <div className="space-y-8">
+              {/* Section & Subject Selector */}
               <div className="grid grid-cols-2 gap-6">
                 <div className="bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-200">
                   <label className="text-xs font-black text-emerald-700 uppercase mb-3 block">
-                    Target Section
+                    📚 Target Section
                   </label>
                   <select 
                     className="w-full p-4 bg-white rounded-xl font-bold border-2 border-emerald-300 focus:border-emerald-500 outline-none"
@@ -254,13 +262,13 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                     ))}
                   </select>
                   {!targetSection && (
-                    <p className="text-xs text-red-600 font-bold mt-2">Required</p>
+                    <p className="text-xs text-red-600 font-bold mt-2">⚠️ Required</p>
                   )}
                 </div>
 
                 <div className="bg-purple-50 p-6 rounded-2xl border-2 border-purple-200">
                   <label className="text-xs font-black text-purple-700 uppercase mb-3 block">
-                    Target Subject
+                    📖 Target Subject
                   </label>
                   <input
                     type="text"
@@ -270,7 +278,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                     onChange={e => setTargetSubject(e.target.value)}
                   />
                   {!targetSubject && (
-                    <p className="text-xs text-red-600 font-bold mt-2">Required</p>
+                    <p className="text-xs text-red-600 font-bold mt-2">⚠️ Required</p>
                   )}
                 </div>
               </div>
@@ -278,11 +286,11 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
               <div className="grid grid-cols-2 gap-6">
                 <input type="text" placeholder="Step Topic" className="p-6 bg-slate-50 rounded-2xl font-bold" value={topicTitle} onChange={e => setTopicTitle(e.target.value)} />
                 <select className="p-6 bg-slate-50 rounded-2xl font-bold" value={contentType} onChange={e => setContentType(e.target.value)}>
-                  <option value="text">Text Lesson</option>
-                  <option value="video">Video Upload</option>
-                  <option value="mcq">Quiz (MCQ)</option>
-                  <option value="coding">Coding Problem (Auto-Graded)</option>
-                  <option value="code">Code Example (Display Only)</option>
+                  <option value="text">📝 Text Lesson</option>
+                  <option value="video">🎥 Video Upload</option>
+                  <option value="mcq">❓ Quiz (MCQ)</option>
+                  <option value="coding">💻 Coding Problem (Auto-Graded)</option>
+                  <option value="code">📋 Code Example (Display Only)</option>
                 </select>
               </div>
 
@@ -292,7 +300,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                 <div className="space-y-4">
                   <div className="bg-blue-50 p-6 rounded-2xl border-2 border-blue-200">
                     <label className="text-xs font-black text-blue-700 uppercase mb-3 block">
-                      Upload Video to Cloudinary
+                      🎥 Upload Video to Cloudinary
                     </label>
                     <input 
                       type="file" 
@@ -302,12 +310,12 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                     />
                     {videoFile && (
                       <p className="text-xs text-blue-600 font-bold mt-2">
-                        Selected: {videoFile.name}
+                        ✓ Selected: {videoFile.name}
                       </p>
                     )}
                     {uploadingVideo && (
                       <p className="text-xs text-blue-600 font-bold mt-2 animate-pulse">
-                        Uploading video...
+                        ⏳ Uploading video...
                       </p>
                     )}
                   </div>
@@ -341,9 +349,10 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
 
               {contentType === 'coding' && (
                 <div className="space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 p-8 rounded-3xl border-2 border-blue-200">
+                  {/* Problem Description */}
                   <div>
                     <label className="text-xs font-black text-slate-700 uppercase mb-2 block">
-                       Problem Description
+                      📋 Problem Description
                     </label>
                     <textarea 
                       placeholder="Describe the coding problem. Example: Write a program that takes two numbers as input and prints their sum."
@@ -352,9 +361,11 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                       onChange={e => setCodingProblem({...codingProblem, description: e.target.value})}
                     />
                   </div>
+
+                  {/* Starter Code Templates */}
                   <div>
                     <label className="text-xs font-black text-slate-700 uppercase mb-3 block">
-                      Starter Code Templates (Students will see this)
+                      🎯 Starter Code Templates (Students will see this)
                     </label>
                     <div className="grid grid-cols-2 gap-4">
                       {Object.keys(codingProblem.starterCode).map(lang => (
@@ -372,10 +383,12 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                       ))}
                     </div>
                   </div>
+
+                  {/* Test Cases */}
                   <div>
                     <div className="flex justify-between items-center mb-3">
                       <label className="text-xs font-black text-slate-700 uppercase">
-                        Test Cases (For Auto-Grading)
+                        ✅ Test Cases (For Auto-Grading)
                       </label>
                       <button
                         type="button"
@@ -405,7 +418,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                             })}
                             className="absolute top-3 right-3 text-red-400 hover:text-red-600 font-bold"
                           >
-                            
+                            ✕
                           </button>
                           
                           <div className="flex items-center gap-3 mb-3">
@@ -460,6 +473,8 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                       ))}
                     </div>
                   </div>
+
+                  {/* Constraints */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-white p-4 rounded-xl border-2 border-slate-200">
                       <label className="text-xs font-bold text-slate-600 mb-2 block">⏱️ Time Limit (ms)</label>
@@ -471,7 +486,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
                       />
                     </div>
                     <div className="bg-white p-4 rounded-xl border-2 border-slate-200">
-                      <label className="text-xs font-bold text-slate-600 mb-2 block"> Memory Limit (MB)</label>
+                      <label className="text-xs font-bold text-slate-600 mb-2 block">💾 Memory Limit (MB)</label>
                       <input
                         type="number"
                         className="w-full p-3 bg-slate-50 rounded-lg border font-bold"

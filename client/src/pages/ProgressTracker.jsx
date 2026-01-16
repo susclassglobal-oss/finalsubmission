@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import NotificationBell from '../components/NotificationBell';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function ProgressTracker() {
   const navigate = useNavigate();
@@ -13,7 +10,7 @@ export default function ProgressTracker() {
     const fetchProgress = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch(`${API_URL}/api/student/progress`, {
+        const res = await fetch('http://localhost:5000/api/student/progress', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -49,13 +46,12 @@ export default function ProgressTracker() {
           ← Back to Dashboard
         </button>
 
-        <header className="mb-12 flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Your Growth Journey</h1>
-            <p className="text-slate-500 mt-2">Track your test performance and progress.</p>
-          </div>
-          <NotificationBell />
+        <header className="mb-12">
+          <h1 className="text-3xl font-bold text-slate-900">Your Growth Journey</h1>
+          <p className="text-slate-500 mt-2">Track your test performance and progress.</p>
         </header>
+
+        {/* STATS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
           <div className="p-6 bg-white border border-slate-100 rounded-3xl shadow-sm">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Total Tests</p>
@@ -97,6 +93,8 @@ export default function ProgressTracker() {
             </div>
           </div>
         </div>
+
+        {/* PROGRESS SUMMARY */}
         <section className="bg-white border border-slate-100 rounded-[2.5rem] p-8 lg:p-10 shadow-sm">
           <h2 className="text-lg font-bold text-slate-800 mb-8">Progress Summary</h2>
           
@@ -109,7 +107,7 @@ export default function ProgressTracker() {
               <div className="flex items-center justify-between p-6 bg-emerald-50 rounded-2xl">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white font-black text-xl">
-                    +
+                    ✓
                   </div>
                   <div>
                     <p className="font-bold text-slate-800">Tests Completed</p>
@@ -123,7 +121,7 @@ export default function ProgressTracker() {
                 <div className="flex items-center justify-between p-6 bg-red-50 rounded-2xl">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center text-white font-black text-xl">
-                      !
+                      ⚠
                     </div>
                     <div>
                       <p className="font-bold text-slate-800">Overdue Tests</p>
@@ -142,7 +140,7 @@ export default function ProgressTracker() {
               <div className="flex items-center justify-between p-6 bg-blue-50 rounded-2xl">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-black text-xl">
-                    %
+                    📊
                   </div>
                   <div>
                     <p className="font-bold text-slate-800">Average Performance</p>
