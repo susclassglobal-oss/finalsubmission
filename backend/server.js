@@ -1460,6 +1460,93 @@ app.post('/api/student/submit-code', authenticateToken, async (req, res) => {
 // NOTIFICATION SYSTEM ENDPOINTS
 // ============================================================
 
+// Get in-app notifications inbox
+app.get('/api/notifications/inbox', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userType = req.user.role;
+    
+    const result = await pool.query(
+      `SELECT id, event_code, title, message, link, is_read, metadata, created_at
+       FROM in_app_notifications 
+       WHERE user_id = $1 AND user_type = $2
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [userId, userType]
+    );
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching notifications:', err);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+// Get unread notification count
+app.get('/api/notifications/unread-count', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userType = req.user.role;
+    
+    const result = await pool.query(
+      `SELECT COUNT(*) as count FROM in_app_notifications 
+       WHERE user_id = $1 AND user_type = $2 AND is_read = false`,
+      [userId, userType]
+    );
+    
+    res.json({ count: parseInt(result.rows[0]?.count || 0) });
+  } catch (err) {
+    console.error('Error fetching unread count:', err);
+    res.status(500).json({ error: 'Failed to fetch unread count' });
+  }
+});
+
+// Mark single notification as read
+app.patch('/api/notifications/:id/read', authenticateToken, async (req, res) => {
+  try {
+    const notificationId = req.params.id;
+    const userId = req.user.id;
+    const userType = req.user.role;
+    
+    const result = await pool.query(
+      `UPDATE in_app_notifications 
+       SET is_read = true 
+       WHERE id = $1 AND user_id = $2 AND user_type = $3
+       RETURNING id`,
+      [notificationId, userId, userType]
+    );
+    
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error marking notification as read:', err);
+    res.status(500).json({ error: 'Failed to mark notification as read' });
+  }
+});
+
+// Mark all notifications as read
+app.patch('/api/notifications/read-all', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userType = req.user.role;
+    
+    await pool.query(
+      `UPDATE in_app_notifications 
+       SET is_read = true 
+       WHERE user_id = $1 AND user_type = $2 AND is_read = false`,
+      [userId, userType]
+    );
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error marking all notifications as read:', err);
+    res.status(500).json({ error: 'Failed to mark notifications as read' });
+  }
+});
+
 // Get user notification preferences
 app.get('/api/notifications/preferences', authenticateToken, async (req, res) => {
   try {
