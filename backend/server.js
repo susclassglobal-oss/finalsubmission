@@ -1233,18 +1233,23 @@ app.post('/api/student/test/submit', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Test not found" });
     }
     
-    const { questions, total_questions, deadline } = testResult.rows[0];
-    console.log("Test Questions:", questions);
+    const { questions: rawQuestions, total_questions, deadline } = testResult.rows[0];
+    
+    // Parse questions if stored as JSON string (SQLite) vs object (PostgreSQL)
+    const questions = typeof rawQuestions === 'string' ? JSON.parse(rawQuestions) : rawQuestions;
+    console.log("Test Questions (parsed):", JSON.stringify(questions).substring(0, 200));
+    console.log("Total questions:", questions.length);
     
     // CALCULATE SCORE IN BACKEND (more reliable than SQL trigger)
     let correct_count = 0;
     
     for (let i = 0; i < questions.length; i++) {
       const question = questions[i];
-      const studentAnswer = answers[i.toString()]; // answers is {"0": "A", "1": "B", ...}
+      // Student answers use 1-indexed keys: {"1": "A", "2": "B", ...}
+      const studentAnswer = answers[(i + 1).toString()];
       const correctAnswer = question.correct;
       
-      console.log(`Q${i}: Student="${studentAnswer}" vs Correct="${correctAnswer}"`);
+      console.log(`Q${i + 1}: Student="${studentAnswer}" vs Correct="${correctAnswer}"`);
       
       // Case-insensitive comparison
       if (studentAnswer && correctAnswer && 
@@ -1589,13 +1594,36 @@ if (process.env.ENABLE_DEV_ENDPOINTS === 'true' || process.env.NODE_ENV !== 'pro
 
 // Serve React app for all non-API routes in production (SPA catch-all)
 if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
-    // Don't catch API routes
-    if (req.path.startsWith('/api/')) {
-      return res.status(404).json({ error: 'API endpoint not found' });
-    }
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-  });
+  const fs = require('fs');
+  const publicIndexPath = path.join(__dirname, 'public', 'index.html');
+  const hasPublicIndex = fs.existsSync(publicIndexPath);
+  
+  if (hasPublicIndex) {
+    app.get('*', (req, res) => {
+      // Don't catch API routes
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+      }
+      res.sendFile(publicIndexPath);
+    });
+  } else {
+    // API-only mode: No frontend bundled
+    console.log('⚠️  No public/index.html found - running in API-only mode');
+    console.log('   Frontend should be deployed separately or build frontend first');
+    app.get('/', (req, res) => {
+      res.json({
+        message: 'Sustainable Classroom API',
+        status: 'running',
+        mode: 'api-only',
+        note: 'Frontend not bundled. Deploy frontend separately or use Docker build.',
+        endpoints: {
+          health: '/api/health',
+          login: '/api/login',
+          admin: '/api/admin/*'
+        }
+      });
+    });
+  }
 }
 
 // Export app for testing, only listen if run directly
