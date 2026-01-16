@@ -1,7 +1,7 @@
 // ============================================================
 // EMAIL NOTIFICATION SERVICE
 // ============================================================
-// Purpose: Send email notifications using Nodemailer
+// Purpose: Send email notifications using Mailjet
 // Features:
 //   - Template-based email generation
 //   - Batch email sending
@@ -9,7 +9,6 @@
 //   - Email tracking and logging
 // ============================================================
 
-const nodemailer = require('nodemailer');
 const { Pool } = require('pg');
 
 // Database connection (reuse from main server or pass as parameter)
@@ -20,24 +19,21 @@ const initializeNotificationService = (pool) => {
 };
 
 // ============================================================
-// SMTP CONFIGURATION
+// MAILJET CONFIGURATION
 // ============================================================
 
-// Create reusable transporter
-const createTransporter = () => {
-  // Use environment variables for SMTP configuration
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true' || false, // true for 465, false for other ports
-    auth: {
-      user: process.env.SMTP_USER || process.env.ADMIN_EMAIL,
-      pass: process.env.SMTP_PASSWORD || process.env.SMTP_APP_PASSWORD
-    },
-    tls: {
-      rejectUnauthorized: false // For development only
-    }
-  });
+// Create Mailjet client
+const createMailjetClient = () => {
+  const mjApiKeyPublic = process.env.MJ_APIKEY_PUBLIC;
+  const mjApiKeyPrivate = process.env.MJ_APIKEY_PRIVATE;
+  
+  if (mjApiKeyPublic && mjApiKeyPrivate) {
+    const Mailjet = require('node-mailjet');
+    return Mailjet.apiConnect(mjApiKeyPublic, mjApiKeyPrivate);
+  }
+  
+  console.warn('⚠ Mailjet API keys not set - emails will be logged only');
+  return null;
 };
 
 // Resolve frontend base URL at runtime
@@ -321,30 +317,54 @@ const sendEmail = async (eventCode, recipient, data, metadata = {}) => {
 
     const { subject, html } = template(data);
 
-    // Create transporter
-    const transporter = createTransporter();
+    // Create Mailjet client
+    const mailjet = createMailjetClient();
+    
+    if (!mailjet) {
+      console.log(`[EMAIL MOCK] ${eventCode} → ${recipient.email}: ${subject}`);
+      return { success: false, reason: 'no_mailjet_config' };
+    }
 
-    // Send email
-    const info = await transporter.sendMail({
-      from: `"Sustainable Classroom" <${process.env.SMTP_USER || process.env.ADMIN_EMAIL}>`,
-      to: recipient.email,
-      subject: subject,
-      html: html
-    });
+    // Send email via Mailjet
+    const result = await mailjet
+      .post('send', { version: 'v3.1' })
+      .request({
+        Messages: [
+          {
+            From: {
+              Email: 'susclass.global@gmail.com',
+              Name: 'SusClass'
+            },
+            To: [
+              {
+                Email: recipient.email
+              }
+            ],
+            Subject: subject,
+            HTMLPart: html
+          }
+        ]
+      });
 
-    // Log success
-    await dbPool.query(
-      `INSERT INTO notification_logs 
-       (event_code, recipient_id, recipient_type, recipient_email, channel, status, subject, message, metadata, sent_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)`,
-      [eventCode, recipient.id, recipient.type, recipient.email, 'email', 'sent', subject, html, JSON.stringify(metadata)]
-    );
+    const status = result.body.Messages[0].Status;
+    
+    if (status === 'success') {
+      // Log success
+      await dbPool.query(
+        `INSERT INTO notification_logs 
+         (event_code, recipient_id, recipient_type, recipient_email, channel, status, subject, message, metadata, sent_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)`,
+        [eventCode, recipient.id, recipient.type, recipient.email, 'email', 'sent', subject, html, JSON.stringify(metadata)]
+      );
 
-    console.log(`✓ Email sent to ${recipient.email} (${eventCode}): ${info.messageId}`);
-    return { success: true, messageId: info.messageId };
+      console.log(`✓ Email sent via Mailjet to ${recipient.email} (${eventCode})`);
+      return { success: true, messageId: result.body.Messages[0].To[0].MessageUUID };
+    } else {
+      throw new Error(`Mailjet status: ${status}`);
+    }
 
   } catch (error) {
-    console.error(`✗ Email send failed for ${recipient.email} (${eventCode}):`, error);
+    console.error(`✗ Email send failed for ${recipient.email} (${eventCode}):`, error.message);
 
     // Log failure
     await dbPool.query(
