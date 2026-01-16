@@ -1046,7 +1046,7 @@ app.get('/api/student/stats', authenticateToken, async (req, res) => {
       WHERE LOWER(m.section) = LOWER($1)
       AND m.step_count > 0
       AND NOT EXISTS (
-        SELECT 1 FROM generate_series(1, m.step_count) s(n)
+        SELECT 1 FROM generate_series(0, m.step_count - 1) s(n)
         WHERE NOT EXISTS (
           SELECT 1 FROM module_completion mc 
           WHERE mc.module_id = m.id AND mc.student_id = $2 AND mc.step_index = s.n AND mc.is_completed = true
