@@ -94,6 +94,8 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
   const addStepToQueue = async () => {
     if (!topicTitle) return alert("Please enter a Topic Header first.");
     
+    console.log("Adding step:", contentType, "Topic:", topicTitle);
+    
     let stepData;
     
     if (contentType === 'video') {
@@ -118,6 +120,11 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
         duration: jitsiData.duration,
         meetingUrl: `https://8x8.vc/${jitsiData.roomName.replace(/\s+/g, '-').toLowerCase()}`
       };
+    } else if (contentType === 'mcq') {
+      // Validate MCQ
+      if (!mcqData.question) return alert("Please add a question");
+      if (!mcqData.a || !mcqData.b || !mcqData.c || !mcqData.d) return alert("Please fill all answer options");
+      stepData = mcqData;
     } else if (contentType === 'coding') {
       // Validate coding problem
       if (!codingProblem.description) return alert("Please add a problem description");
@@ -126,16 +133,24 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
         return alert("All test cases must have input and expected output");
       }
       stepData = codingProblem;
+    } else if (contentType === 'code') {
+      // Code example
+      if (!codeStarter) return alert("Please add some code");
+      stepData = codeStarter;
     } else {
-      stepData = contentType === 'text' ? textData 
-                 : contentType === 'code' ? codeStarter 
-                 : mcqData;
+      // Text content
+      if (!textData) return alert("Please add some text content");
+      stepData = textData;
     }
 
     const newStep = { type: contentType, header: topicTitle, data: stepData, id: Date.now() };
+    console.log("Adding step to queue:", newStep);
     setModuleQueue([...moduleQueue, newStep]);
     
+    alert("Step added to module! Add more steps or publish the full module.");
+    
     // Reset inputs but keep topic title if user wants to add more steps to same topic
+    setTopicTitle(""); // Clear topic title too so they enter new one for next step
     setTextData(""); 
     setVideoUrl(""); 
     setVideoFile(null);
