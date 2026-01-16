@@ -8,7 +8,6 @@ const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
 const { Resend } = require('resend');
 const notificationService = require('./notificationService');
 
@@ -88,88 +87,48 @@ const adminOnly = (req, res, next) => {
 
 // --- ROUTES: AUTHENTICATION ---
 
-// Email configuration - supports both SMTP (local) and Resend API (Render/production)
-const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
-const smtpPass = process.env.SMTP_PASSWORD || process.env.EMAIL_PASS;
+// Email configuration - uses Resend API (works on all platforms including Render free tier)
 const resendApiKey = process.env.RESEND_API_KEY;
 
-console.log('=== EMAIL CONFIG DEBUG ===');
-console.log('RESEND_API_KEY:', resendApiKey ? 'SET (re_...)' : 'NOT SET');
-console.log('SMTP_USER:', smtpUser || 'NOT SET');
-console.log('SMTP_PASSWORD:', smtpPass ? 'SET' : 'NOT SET');
+console.log('=== EMAIL CONFIG ===');
+console.log('RESEND_API_KEY:', resendApiKey ? 'SET (' + resendApiKey.substring(0, 8) + '...)' : 'NOT SET');
 
-// Initialize Resend if API key is available (preferred for cloud deployment)
 let resend = null;
 if (resendApiKey) {
   resend = new Resend(resendApiKey);
-  console.log('✓ Resend API configured (HTTP-based, works on Render free tier)');
+  console.log('✓ Resend email service ready');
+} else {
+  console.warn('⚠ RESEND_API_KEY not set - emails will be logged to console only');
+  console.warn('  Get a free API key at https://resend.com');
 }
 
-// Initialize SMTP transporter as fallback (works locally, blocked on Render free)
-let transporter = null;
-if (smtpUser && smtpPass && !resendApiKey) {
-  transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: smtpUser,
-      pass: smtpPass
-    }
-  });
-  
-  transporter.verify((error, success) => {
-    if (error) {
-      console.error('✗ SMTP verification FAILED:', error.message);
-    } else {
-      console.log('✓ SMTP transporter VERIFIED');
-    }
-  });
-}
-
-if (!resend && !transporter) {
-  console.warn('⚠ No email service configured - emails will be logged to console only');
-  console.warn('  Set RESEND_API_KEY (recommended) or SMTP_USER + SMTP_PASSWORD');
-}
-
-// Unified email sender - uses Resend API or SMTP
+// Send email using Resend API
 const sendEmailAsync = async (mailOptions) => {
-  console.log('[EMAIL] Sending to:', mailOptions.to);
+  console.log('[EMAIL] Sending to:', mailOptions.to, '| Subject:', mailOptions.subject);
   
-  // Try Resend first (works on Render)
-  if (resend) {
-    try {
-      const { data, error } = await resend.emails.send({
-        from: 'SusClass <onboarding@resend.dev>', // Use verified domain in production
-        to: mailOptions.to,
-        subject: mailOptions.subject,
-        html: mailOptions.html
-      });
-      
-      if (error) {
-        console.error('✗ Resend FAILED:', error);
-        return;
-      }
-      
-      console.log('✓ Email sent via Resend! ID:', data.id);
-      return;
-    } catch (err) {
-      console.error('✗ Resend error:', err.message);
-      return;
-    }
-  }
-  
-  // Fallback to SMTP (local development)
-  if (transporter) {
-    try {
-      const info = await transporter.sendMail(mailOptions);
-      console.log('✓ Email sent via SMTP! ID:', info.messageId);
-    } catch (err) {
-      console.error('✗ SMTP send FAILED:', err.message);
-    }
+  if (!resend) {
+    console.log('[EMAIL MOCK] No Resend API key - email not sent');
+    console.log('[EMAIL MOCK] HTML preview:', mailOptions.html?.substring(0, 100) + '...');
     return;
   }
   
-  // No email service configured
-  console.log('[EMAIL MOCK] To:', mailOptions.to, 'Subject:', mailOptions.subject);
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'SusClass <onboarding@resend.dev>',
+      to: mailOptions.to,
+      subject: mailOptions.subject,
+      html: mailOptions.html
+    });
+    
+    if (error) {
+      console.error('✗ Resend API error:', JSON.stringify(error));
+      return;
+    }
+    
+    console.log('✓ Email sent successfully! ID:', data.id);
+  } catch (err) {
+    console.error('✗ Email send failed:', err.message);
+  }
 };
 
 // 1. Admin Login (Env based)
@@ -209,8 +168,7 @@ app.post('/api/login', async (req, res) => {
                 res.json({ success: true, mfaRequired: true, email: user.email });
 
                 // Then send email in background (non-blocking)
-                const mailOptions = {
-                    from: smtpUser || 'noreply@susclass.com',
+                sendEmailAsync({
                     to: email,
                     subject: 'Your Portal Access Code',
                     html: `
@@ -221,8 +179,7 @@ app.post('/api/login', async (req, res) => {
                             <p style="color: #999; font-size: 12px;">This code expires in 5 minutes.</p>
                         </div>
                     `
-                };
-                sendEmailAsync(mailOptions);
+                });
             } else {
                 res.status(401).json({ success: false, message: "Incorrect Password" });
             }
