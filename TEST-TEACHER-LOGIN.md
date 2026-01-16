@@ -21,7 +21,7 @@ Connected to Neon PostgreSQL
 ### Step 2: Test Login API Directly
 Open a new terminal and run:
 ```bash
-curl -X POST http://localhost:5000/api/login -H "Content-Type: application/json" -d "{\"email\":\"teacher@example.com\",\"password\":\"password123\",\"role\":\"teacher\"}"
+curl -X POST http://localhost:5000/api/login -H "Content-Type: application/json" -d "{\"email\":\"teacher@yourdomain.com\",\"password\":\"your_password\",\"role\":\"teacher\"}"
 ```
 
 **Expected Response:**
@@ -32,7 +32,7 @@ curl -X POST http://localhost:5000/api/login -H "Content-Type: application/json"
   "user": {
     "id": 1,
     "name": "Teacher Name",
-    "email": "teacher@example.com",
+    "email": "teacher@yourdomain.com",
     ...
   }
 }
@@ -94,7 +94,7 @@ Then login again.
 ### Fix 2: Check if Teacher Exists
 Run in Neon SQL Editor:
 ```sql
-SELECT * FROM teachers WHERE email = 'teacher@example.com';
+SELECT * FROM teachers WHERE email = 'teacher@yourdomain.com';
 ```
 
 If no results, teacher doesn't exist. Register them via admin panel.
@@ -104,8 +104,8 @@ If no results, teacher doesn't exist. Register them via admin panel.
 2. Go to "Add Teacher"
 3. Register teacher with:
    - Name: Test Teacher
-   - Email: teacher@example.com
-   - Password: password123
+   - Email: teacher@yourdomain.com
+   - Password: [your_password]
    - Staff ID: T001
    - Dept: CSE
 4. Try logging in again

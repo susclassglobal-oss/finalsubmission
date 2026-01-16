@@ -26,7 +26,7 @@ jest.mock('../notificationService', () => mockNotificationService);
 // SQLite in-memory DB setup
 let db;
 let app;
-const JWT_SECRET = 'test-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-for-testing-only';
 const ADMIN_EMAIL = 'admin@test.com';
 const ADMIN_PASSWORD = 'admin123';
 

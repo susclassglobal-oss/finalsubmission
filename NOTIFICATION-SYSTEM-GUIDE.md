@@ -201,7 +201,7 @@ Authorization: Bearer <token>
     "user_id": 5,
     "user_type": "student",
     "user_name": "John Doe",
-    "user_email": "john@example.com",
+    "user_email": "john@yourdomain.com",
     "event_code": "MODULE_PUBLISHED",
     "event_name": "New Module Available",
     "category": "module",

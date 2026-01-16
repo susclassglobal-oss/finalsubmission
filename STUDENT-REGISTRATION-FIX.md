@@ -60,7 +60,7 @@ Change `kaarunyashree.g@gmai` to `kaarunyashree.g@gmail.com`
 
 ### Option 2: Use Different Email
 Enter a complete email address like:
-- `kaaru@example.com`
+- `user@yourdomain.com`
 - `student@college.edu`
 - `kaarunyashree@gmail.com`
 
