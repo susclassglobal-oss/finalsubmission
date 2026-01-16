@@ -280,7 +280,7 @@ After uploading:
 4. **Review**: Check imported questions
 5. **Create**: Click "Create Test"
 
-**Done!** Students can now take the test. 🎉
+Students can now access the test.
 
 ---
 

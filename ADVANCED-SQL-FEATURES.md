@@ -43,7 +43,7 @@ CREATE OR REPLACE VIEW v_modules_detailed AS...
 
 ## 📊 Bonus Features Included
 
-### Utility Views You Can Use:
+### Available Utility Views:
 
 #### 1. Teachers with Statistics
 ```sql

@@ -77,7 +77,7 @@ psql <your-connection-string> -f backend/update-teacher-students-view.sql
 ```
 
 ### Step 2: Restart the Backend Server
-The frontend changes are already applied. Just restart the backend:
+The frontend changes are already applied. Restart the backend:
 
 ```bash
 # Stop the current server (Ctrl+C)

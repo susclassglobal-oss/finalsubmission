@@ -442,4 +442,4 @@ time_taken      INTEGER (seconds)
 ✅ **Auto-grading**: Scores calculated automatically  
 ✅ **Deadline tracking**: Shows overdue tests  
 
-**Just run the SQL script and you're ready to go!** 🚀
+**Execute the SQL script to complete setup.**

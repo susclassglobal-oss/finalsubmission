@@ -92,7 +92,7 @@ created_at   | TIMESTAMP | Module creation date
 
 ## 🔍 Verify Your Setup
 
-After running the script, you can verify by running these queries:
+After running the script, verify by running these queries:
 
 ### Check all tables exist:
 ```sql
@@ -204,7 +204,7 @@ Once the script runs successfully:
 
 1. ✅ Your database is ready
 2. ✅ All API endpoints will work
-3. ✅ You can start testing the application
+3. Application testing ready
 4. ✅ Admin can register teachers and students
 5. ✅ Teachers can create modules
 6. ✅ Students can view and complete modules

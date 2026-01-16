@@ -23,7 +23,7 @@ CONSTRAINTS:
 
 ---
 
-## 🎯 Starter Code Templates (Already filled in - just verify)
+## Starter Code Templates (Verify setup)
 
 ### Java:
 ```java
@@ -326,4 +326,4 @@ print(factorial)
 6. **Click:** "Add Step"
 7. **Click:** "Publish Module"
 
-Done! 🎉
+Setup complete.

@@ -53,7 +53,7 @@ cd backend
 npm run dev
 ```
 
-✅ **Done!** Notifications are now active.
+Notifications are now active.
 
 ---
 

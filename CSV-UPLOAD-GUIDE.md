@@ -246,10 +246,10 @@ Contains 20 sample questions covering:
    - Verify correct answers
    - Click "Create Test"
 
-6. **Done!**
+6. **Process Complete**
    - Test is now available to students
    - Students can see it in "Test Knowledge"
-   - You can view submissions later
+   - View submissions later
 
 ---
 
