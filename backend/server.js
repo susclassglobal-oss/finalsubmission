@@ -91,6 +91,14 @@ const adminOnly = (req, res, next) => {
 const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
 const smtpPass = process.env.SMTP_PASSWORD || process.env.EMAIL_PASS;
 
+console.log('=== EMAIL CONFIG DEBUG ===');
+console.log('SMTP_USER env:', process.env.SMTP_USER ? 'SET' : 'NOT SET');
+console.log('EMAIL_USER env:', process.env.EMAIL_USER ? 'SET' : 'NOT SET');
+console.log('SMTP_PASSWORD env:', process.env.SMTP_PASSWORD ? 'SET (hidden)' : 'NOT SET');
+console.log('EMAIL_PASS env:', process.env.EMAIL_PASS ? 'SET (hidden)' : 'NOT SET');
+console.log('Resolved smtpUser:', smtpUser || 'NONE');
+console.log('Resolved smtpPass:', smtpPass ? '***' + smtpPass.slice(-4) : 'NONE');
+
 let transporter = null;
 if (smtpUser && smtpPass) {
   transporter = nodemailer.createTransport({
@@ -100,21 +108,44 @@ if (smtpUser && smtpPass) {
       pass: smtpPass
     }
   });
+  
+  // Verify transporter on startup
+  transporter.verify((error, success) => {
+    if (error) {
+      console.error('✗ Email transporter verification FAILED:', error.message);
+      console.error('  Full error:', error);
+    } else {
+      console.log('✓ Email transporter VERIFIED - ready to send emails');
+    }
+  });
+  
   console.log('✓ Email transporter configured with:', smtpUser);
 } else {
   console.warn('⚠ SMTP not configured - emails will be logged to console only');
+  console.warn('  Set SMTP_USER and SMTP_PASSWORD environment variables');
 }
 
 // Helper function to send email without blocking
 const sendEmailAsync = (mailOptions) => {
+  console.log('[EMAIL] Attempting to send to:', mailOptions.to);
+  
   if (!transporter) {
-    console.log('[EMAIL MOCK] To:', mailOptions.to, 'Subject:', mailOptions.subject);
+    console.log('[EMAIL MOCK] No transporter - To:', mailOptions.to, 'Subject:', mailOptions.subject);
     return;
   }
   
   transporter.sendMail(mailOptions)
-    .then(() => console.log('✓ Email sent to:', mailOptions.to))
-    .catch(err => console.error('✗ Email failed:', err.message));
+    .then((info) => {
+      console.log('✓ Email sent successfully to:', mailOptions.to);
+      console.log('  Message ID:', info.messageId);
+      console.log('  Response:', info.response);
+    })
+    .catch(err => {
+      console.error('✗ Email send FAILED to:', mailOptions.to);
+      console.error('  Error code:', err.code);
+      console.error('  Error message:', err.message);
+      console.error('  Full error:', err);
+    });
 };
 
 // 1. Admin Login (Env based)
