@@ -1268,11 +1268,19 @@ app.get('/api/student/module/:moduleId', authenticateToken, async (req, res) => 
     // Format steps for the frontend
     const formattedSteps = steps.map((step, index) => ({
       id: index + 1,
-      step_type: step.type, // 'video', 'content', 'mcq', or 'coding'
-      // This is what the frontend is looking for:
-      mcq_data: step.data, 
-      content_text: step.data.description || step.data.question || ''
+      step_type: step.type, // 'video', 'text', 'mcq', 'coding', 'jitsi', 'code'
+      step_header: step.header, // The step title
+      content: step.type === 'video' ? step.data : 
+               step.type === 'text' ? step.data : 
+               step.type === 'code' ? step.data :
+               null, // For video URLs and text content
+      mcq_data: step.type === 'mcq' ? step.data :
+                step.type === 'coding' ? step.data :
+                step.type === 'jitsi' ? step.data :
+                null // For structured data (MCQ, coding problems, jitsi)
     }));
+    
+    console.log("Formatted steps for student:", formattedSteps);
     
     res.json(formattedSteps);
   } catch (err) {

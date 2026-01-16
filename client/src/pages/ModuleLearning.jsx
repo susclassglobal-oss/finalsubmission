@@ -92,7 +92,7 @@ function ModuleLearning() {
   }, [currentStepIndex, steps, language]);
 
   const currentStep = steps[currentStepIndex];
-  const progressPercent = steps.length > 0 ? ((currentStepIndex + 1) / steps.length) * 100 : 0;
+  const progressPercent = steps.length > 0 ? (currentStepIndex / steps.length) * 100 : 0; // Show progress as percentage of steps completed, not current step
 
   const handleMcqSubmit = () => {
     const correct = currentStep.mcq_data?.correct?.toUpperCase() === selectedAnswer.toUpperCase();
@@ -185,9 +185,16 @@ function ModuleLearning() {
         </div>
       </div>
 
-      {/* Progress Bar */}
+      {/* Progress Bar with better color indication */}
       <div className="bg-slate-200 h-1">
-        <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
+        <div 
+          className={`h-full transition-all duration-500 ${
+            progressPercent === 0 ? 'bg-slate-400' : 
+            progressPercent < 100 ? 'bg-amber-500' : 
+            'bg-emerald-500'
+          }`} 
+          style={{ width: `${Math.max(5, progressPercent)}%` }}
+        ></div>
       </div>
 
       <main className="max-w-6xl mx-auto p-6">
@@ -202,10 +209,10 @@ function ModuleLearning() {
               onClick={() => setCurrentStepIndex(idx)}
               className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${
                 idx === currentStepIndex
-                  ? 'bg-emerald-600 text-white'
+                  ? 'bg-blue-600 text-white' // Current step - blue
                   : idx < currentStepIndex
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-slate-200 text-slate-500'
+                  ? 'bg-emerald-100 text-emerald-700' // Completed - green
+                  : 'bg-slate-200 text-slate-500' // Not started - gray
               }`}
             >
               Step {idx + 1}: {step.step_type?.toUpperCase() || 'Content'}
@@ -228,8 +235,18 @@ function ModuleLearning() {
             {currentStep.step_type === 'text' && (
               <div className="prose max-w-none">
                 <div className="bg-slate-50 p-6 rounded-2xl whitespace-pre-wrap text-slate-700 leading-relaxed">
-                  {currentStep.content || currentStep.mcq_data || 'No content available.'}
+                  {currentStep.content || 'No content available.'}
                 </div>
+              </div>
+            )}
+
+            {/* CODE EXAMPLE */}
+            {currentStep.step_type === 'code' && (
+              <div className="bg-slate-900 rounded-2xl overflow-hidden">
+                <div className="px-4 py-2 bg-slate-800 text-xs text-slate-400 font-bold uppercase">Code Example</div>
+                <pre className="p-4 text-emerald-400 font-mono text-sm overflow-x-auto">
+                  {currentStep.content || '// No code provided'}
+                </pre>
               </div>
             )}
 
