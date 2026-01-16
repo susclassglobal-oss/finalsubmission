@@ -229,7 +229,16 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
 
   return (
     <div className="max-w-6xl mx-auto space-y-10">
-      {!isBuilding ? (
+      {/* Check if teacher has allocated sections */}
+      {!allocatedSections || allocatedSections.length === 0 ? (
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-3xl p-12 text-center">
+          <svg className="w-16 h-16 text-amber-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <h3 className="text-2xl font-bold text-amber-700 mb-2">No Sections Allocated</h3>
+          <p className="text-amber-600">Please contact admin to allocate class sections to you before creating modules.</p>
+        </div>
+      ) : !isBuilding ? (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Live Modules</h3>
@@ -609,7 +618,7 @@ function ModuleBuilder({ selectedSection, authHeaders, allocatedSections }) {
              <button onClick={() => {setIsBuilding(false); setModuleQueue([]); setEditingModuleId(null);}} className="w-full mt-6 text-red-500 text-[10px] font-black uppercase p-4">Discard</button>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

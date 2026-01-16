@@ -751,12 +751,22 @@ app.post('/api/admin/allocate-sections', authenticateToken, adminOnly, async (re
     
     // Handle null or non-array allocated_sections
     let currentSections = teacherResult.rows[0]?.allocated_sections;
+    
+    // Parse if it's a JSON string, ensure it's an array
+    if (typeof currentSections === 'string') {
+      try {
+        currentSections = JSON.parse(currentSections);
+      } catch (e) {
+        currentSections = [];
+      }
+    }
+    
     if (!Array.isArray(currentSections)) {
       currentSections = [];
     }
     
-    // Add new sections (avoiding duplicates)
-    const updatedSections = [...new Set([...currentSections, ...selectedSectionStrings])];
+    // Add new sections (avoiding duplicates) - convert Set back to Array
+    const updatedSections = Array.from(new Set([...currentSections, ...selectedSectionStrings]));
     
     console.log("Updating teacher sections to:", updatedSections);
     
