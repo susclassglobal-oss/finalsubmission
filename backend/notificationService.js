@@ -182,6 +182,39 @@ const emailTemplates = {
   }),
 
   // TEACHER TEMPLATES
+  MODULE_COMPLETED_BY_STUDENT: (data) => ({
+    subject: `Student Completed Module: ${data.student_name} - ${data.module_title}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
+        <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.06);">
+          <h2 style="color: #111827; margin-bottom: 16px; font-weight: 700;">🎉 Student Module Completion</h2>
+          <p style="color: #1f2937; line-height: 1.6;">Hello <strong>${data.teacher_name}</strong>,</p>
+          <p style="color: #1f2937; line-height: 1.6;">Great news! One of your students has completed a module:</p>
+          
+          <div style="background-color: #d1fae5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+            <h3 style="color: #065f46; margin: 0 0 10px 0;">${data.module_title}</h3>
+            <p style="color: #065f46; margin: 5px 0;"><strong>Student:</strong> ${data.student_name} (${data.student_reg_no || 'N/A'})</p>
+            <p style="color: #065f46; margin: 5px 0;"><strong>Section:</strong> ${data.section}</p>
+            <p style="color: #065f46; margin: 5px 0;"><strong>Completion Time:</strong> ${data.completion_time}</p>
+            <p style="color: #065f46; margin: 5px 0;"><strong>Steps Completed:</strong> ${data.total_steps} steps</p>
+          </div>
+          
+          <p style="color: #1f2937; line-height: 1.6; font-weight: 600;">The student has successfully completed all learning steps in this module!</p>
+          
+           <a href="${FRONTEND_BASE}/teacher/analytics" 
+             style="display: inline-block; background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; font-weight: 600;">
+            View Student Progress
+          </a>
+          
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+          <p style="color: #6b7280; font-size: 12px;">
+            <a href="${FRONTEND_BASE}/settings/notifications" style="color: #111827; text-decoration: underline;">Manage notification preferences</a>
+          </p>
+        </div>
+      </div>
+    `
+  }),
+  
   TEST_SUBMITTED: (data) => ({
     subject: `Test Submission: ${data.student_name} - ${data.test_title}`,
     html: `
@@ -438,6 +471,24 @@ const getStudentsInSection = async (section, eventCode = null) => {
     reg_no: row.reg_no,
     section: row.section
   }));
+};
+
+/**
+ * Get teacher by module ID
+ * @param {number} moduleId - Module ID
+ * @returns {Promise<Object>} - Teacher object
+ */
+const getTeacherByModuleId = async (moduleId) => {
+  try {
+    const result = await dbPool.query(
+      'SELECT id, name, email FROM teachers WHERE id = (SELECT teacher_id FROM modules WHERE id = $1)',
+      [moduleId]
+    );
+    return result.rows[0] || null;
+  } catch (err) {
+    console.error('Database error getting teacher by module ID:', err);
+    return null;
+  }
 };
 
 /**

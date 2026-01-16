@@ -1342,6 +1342,69 @@ app.post('/api/student/module/:moduleId/complete', authenticateToken, async (req
       if (completedSteps >= totalSteps) {
         // All steps complete - mark entire module as complete
         await pool.query('SELECT mark_module_complete($1, $2)', [studentId, moduleId]);
+        
+        // Send notification to teacher about student completion
+        try {
+          // Get module and student info
+          const moduleInfo = await pool.query(
+            'SELECT m.topic_title, m.section, m.teacher_id, m.step_count FROM modules m WHERE m.id = $1',
+            [moduleId]
+          );
+          
+          const studentInfo = await pool.query(
+            'SELECT name, reg_no FROM students WHERE id = $1',
+            [studentId]
+          );
+          
+          if (moduleInfo.rows.length > 0 && studentInfo.rows.length > 0) {
+            const module = moduleInfo.rows[0];
+            const student = studentInfo.rows[0];
+            
+            // Get teacher info
+            const teacher = await notificationService.getTeacherById(module.teacher_id);
+            
+            if (teacher) {
+              // Send email notification to teacher
+              await notificationService.sendEmail(
+                teacher.email,
+                'MODULE_COMPLETED_BY_STUDENT',
+                {
+                  teacher_name: teacher.name,
+                  student_name: student.name,
+                  student_reg_no: student.reg_no,
+                  module_title: module.topic_title,
+                  section: module.section,
+                  total_steps: module.step_count,
+                  completion_time: new Date().toLocaleString()
+                }
+              );
+              
+              // Create in-app notification for teacher
+              await pool.query(`
+                INSERT INTO in_app_notifications 
+                (recipient_type, recipient_id, type, title, message, metadata, created_at)
+                VALUES ('teacher', $1, 'module_completion', $2, $3, $4, CURRENT_TIMESTAMP)
+              `, [
+                module.teacher_id,
+                'Student Completed Module',
+                `${student.name} has completed the module "${module.topic_title}" with all ${module.step_count} steps.`,
+                JSON.stringify({
+                  student_id: studentId,
+                  student_name: student.name,
+                  module_id: moduleId,
+                  module_title: module.topic_title,
+                  section: module.section
+                })
+              ]);
+              
+              console.log(`✓ Sent module completion notification to teacher ${teacher.name}`);
+            }
+          }
+        } catch (notifErr) {
+          console.error('Failed to send teacher notification:', notifErr);
+          // Don't fail the completion if notification fails
+        }
+        
         res.json({ success: true, message: "Module completed!", allComplete: true });
       } else {
         res.json({ success: true, message: "Step marked as complete", progress: completedSteps / totalSteps });
@@ -1349,6 +1412,69 @@ app.post('/api/student/module/:moduleId/complete', authenticateToken, async (req
     } else {
       // Mark entire module as complete
       await pool.query('SELECT mark_module_complete($1, $2)', [studentId, moduleId]);
+      
+      // Send notification to teacher about student completion
+      try {
+        // Get module and student info
+        const moduleInfo = await pool.query(
+          'SELECT m.topic_title, m.section, m.teacher_id, m.step_count FROM modules m WHERE m.id = $1',
+          [moduleId]
+        );
+        
+        const studentInfo = await pool.query(
+          'SELECT name, reg_no FROM students WHERE id = $1',
+          [studentId]
+        );
+        
+        if (moduleInfo.rows.length > 0 && studentInfo.rows.length > 0) {
+          const module = moduleInfo.rows[0];
+          const student = studentInfo.rows[0];
+          
+          // Get teacher info
+          const teacher = await notificationService.getTeacherById(module.teacher_id);
+          
+          if (teacher) {
+            // Send email notification to teacher
+            await notificationService.sendEmail(
+              teacher.email,
+              'MODULE_COMPLETED_BY_STUDENT',
+              {
+                teacher_name: teacher.name,
+                student_name: student.name,
+                student_reg_no: student.reg_no,
+                module_title: module.topic_title,
+                section: module.section,
+                total_steps: module.step_count,
+                completion_time: new Date().toLocaleString()
+              }
+            );
+            
+            // Create in-app notification for teacher
+            await pool.query(`
+              INSERT INTO in_app_notifications 
+              (recipient_type, recipient_id, type, title, message, metadata, created_at)
+              VALUES ('teacher', $1, 'module_completion', $2, $3, $4, CURRENT_TIMESTAMP)
+            `, [
+              module.teacher_id,
+              'Student Completed Module',
+              `${student.name} has completed the module "${module.topic_title}" with all ${module.step_count} steps.`,
+              JSON.stringify({
+                student_id: studentId,
+                student_name: student.name,
+                module_id: moduleId,
+                module_title: module.topic_title,
+                section: module.section
+              })
+            ]);
+            
+            console.log(`✓ Sent module completion notification to teacher ${teacher.name}`);
+          }
+        }
+      } catch (notifErr) {
+        console.error('Failed to send teacher notification:', notifErr);
+        // Don't fail the completion if notification fails
+      }
+      
       res.json({ success: true, message: "Module marked as complete" });
     }
   } catch (err) {

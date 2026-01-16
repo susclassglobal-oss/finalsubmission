@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_URL } from '../config/api';
+import API_BASE_URL from '../config/api';
 
 function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
@@ -15,7 +15,7 @@ function NotificationBell() {
   const fetchUnreadCount = async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${API_URL}/api/notifications/unread-count`, {
+      const res = await fetch(`${API_BASE_URL}/api/notifications/unread-count`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -31,7 +31,7 @@ function NotificationBell() {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/notifications/inbox?limit=10`, {
+      const res = await fetch(`${API_BASE_URL}/api/notifications/inbox?limit=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -47,7 +47,7 @@ function NotificationBell() {
 
   const markAsRead = async (id) => {
     try {
-      await fetch(`${API_URL}/api/notifications/${id}/read`, {
+      await fetch(`${API_BASE_URL}/api/notifications/${id}/read`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -62,7 +62,7 @@ function NotificationBell() {
 
   const markAllAsRead = async () => {
     try {
-      await fetch(`${API_URL}/api/notifications/read-all`, {
+      await fetch(`${API_BASE_URL}/api/notifications/read-all`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` }
       });
