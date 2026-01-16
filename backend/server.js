@@ -8,7 +8,6 @@ const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { Resend } = require('resend');
 const notificationService = require('./notificationService');
 
 const app = express();
@@ -87,53 +86,65 @@ const adminOnly = (req, res, next) => {
 
 // --- ROUTES: AUTHENTICATION ---
 
-// Email configuration - uses Resend API (works on all platforms including Render free tier)
-const resendApiKey = process.env.RESEND_API_KEY;
+// Email configuration - uses Mailjet API (200 emails/day free, no domain verification needed)
+const mjApiKeyPublic = process.env.MJ_APIKEY_PUBLIC;
+const mjApiKeyPrivate = process.env.MJ_APIKEY_PRIVATE;
 
 console.log('=== EMAIL CONFIG ===');
-console.log('RESEND_API_KEY:', resendApiKey ? 'SET (' + resendApiKey.substring(0, 8) + '...)' : 'NOT SET');
+console.log('MJ_APIKEY_PUBLIC:', mjApiKeyPublic ? 'SET (' + mjApiKeyPublic.substring(0, 8) + '...)' : 'NOT SET');
+console.log('MJ_APIKEY_PRIVATE:', mjApiKeyPrivate ? 'SET (hidden)' : 'NOT SET');
 
-let resend = null;
-if (resendApiKey) {
-  resend = new Resend(resendApiKey);
-  console.log('✓ Resend email service ready');
+let mailjet = null;
+if (mjApiKeyPublic && mjApiKeyPrivate) {
+  const Mailjet = require('node-mailjet');
+  mailjet = Mailjet.apiConnect(mjApiKeyPublic, mjApiKeyPrivate);
+  console.log('✓ Mailjet email service ready');
 } else {
-  console.warn('⚠ RESEND_API_KEY not set - emails will be logged to console only');
-  console.warn('  Get a free API key at https://resend.com');
+  console.warn('⚠ Mailjet API keys not set - emails will be logged to console only');
+  console.warn('  Get free API keys at https://www.mailjet.com');
 }
 
-// Send email using Resend API
+// Send email using Mailjet API
 const sendEmailAsync = async (mailOptions) => {
   console.log('[EMAIL] Sending to:', mailOptions.to, '| Subject:', mailOptions.subject);
   
-  if (!resend) {
-    console.log('[EMAIL MOCK] No Resend API key - email not sent');
+  if (!mailjet) {
+    console.log('[EMAIL MOCK] No Mailjet API keys - email not sent');
     console.log('[EMAIL MOCK] OTP would be:', extractOTPFromHTML(mailOptions.html));
     return;
   }
   
   try {
-    const { data, error } = await resend.emails.send({
-      from: 'SusClass <onboarding@resend.dev>',
-      to: mailOptions.to,
-      subject: mailOptions.subject,
-      html: mailOptions.html
-    });
+    const result = await mailjet
+      .post('send', { version: 'v3.1' })
+      .request({
+        Messages: [
+          {
+            From: {
+              Email: 'susclass.global@gmail.com',
+              Name: 'SusClass'
+            },
+            To: [
+              {
+                Email: mailOptions.to
+              }
+            ],
+            Subject: mailOptions.subject,
+            HTMLPart: mailOptions.html
+          }
+        ]
+      });
     
-    if (error) {
-      console.error('✗ Resend API error:', JSON.stringify(error));
-      
-      // If it's a domain verification error, log the OTP for testing
-      if (error.message && error.message.includes('verify a domain')) {
-        console.log('📧 EMAIL BLOCKED - OTP for testing:', extractOTPFromHTML(mailOptions.html));
-        console.log('💡 To fix: Verify a domain at https://resend.com/domains');
-      }
-      return;
+    const status = result.body.Messages[0].Status;
+    if (status === 'success') {
+      console.log('✓ Email sent successfully via Mailjet!');
+    } else {
+      console.error('✗ Mailjet status:', status);
+      console.log('📧 EMAIL ISSUE - OTP for testing:', extractOTPFromHTML(mailOptions.html));
     }
-    
-    console.log('✓ Email sent successfully! ID:', data.id);
   } catch (err) {
-    console.error('✗ Email send failed:', err.message);
+    console.error('✗ Mailjet error:', err.message);
+    console.log('📧 EMAIL FAILED - OTP for testing:', extractOTPFromHTML(mailOptions.html));
   }
 };
 
