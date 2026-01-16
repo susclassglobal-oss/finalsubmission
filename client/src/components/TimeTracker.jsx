@@ -215,13 +215,13 @@ function TimeTracker() {
             {/* Progress to next break */}
             <div className="mt-3">
               <div className="flex justify-between text-[9px] text-slate-400 mb-1">
-                <span>Next break</span>
-                <span>{BREAK_INTERVAL_MINUTES - Math.floor((sessionTime % (BREAK_INTERVAL_MINUTES * 60)) / 60)}m</span>
+                <span>Next break in</span>
+                <span>{Math.max(0, BREAK_INTERVAL_MINUTES - Math.floor((sessionTime % (BREAK_INTERVAL_MINUTES * 60)) / 60))} min</span>
               </div>
               <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-emerald-500 transition-all"
-                  style={{ width: `${((sessionTime % (BREAK_INTERVAL_MINUTES * 60)) / (BREAK_INTERVAL_MINUTES * 60)) * 100}%` }}
+                  className="h-full bg-emerald-500 transition-all duration-1000"
+                  style={{ width: `${Math.min(100, ((sessionTime % (BREAK_INTERVAL_MINUTES * 60)) / (BREAK_INTERVAL_MINUTES * 60)) * 100)}%` }}
                 ></div>
               </div>
             </div>

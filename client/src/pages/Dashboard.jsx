@@ -157,7 +157,7 @@ function Dashboard() {
               {recentModules.map((module, idx) => (
                 <button
                   key={idx}
-                  onClick={() => navigate(`/module/${module.id}`)}
+                  onClick={() => navigate(`/learning/${module.id}`)}
                   className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-emerald-300 transition-all flex justify-between items-center text-left"
                 >
                   <div>
