@@ -5,8 +5,9 @@
 # ============================================================
 FROM node:18-alpine AS frontend-builder
 
-# Build argument for API URL (can be overridden during build)
-ARG VITE_API_URL
+# Build argument for API URL
+# Default to empty string = same-origin API calls (frontend and backend on same domain)
+ARG VITE_API_URL=""
 ENV VITE_API_URL=${VITE_API_URL}
 
 WORKDIR /app/client
@@ -21,6 +22,7 @@ RUN npm ci
 COPY client/ .
 
 # Build the frontend with environment variable
+RUN echo "Building frontend with VITE_API_URL='${VITE_API_URL}'"
 RUN npm run build
 
 # ============================================================
